@@ -1,7 +1,10 @@
 #!/bin/bash
 
+# >>> veation: bloque que escribe tools/aplicar-lock.sh desde versions.lock (no editar a mano)
+SCRIPT_PIEZA="mingw-std-threads"
 SCRIPT_REPO="https://github.com/meganz/mingw-std-threads.git"
 SCRIPT_COMMIT="c931bac289dd431f1dd30fc4a5d1a7be36668073"
+# <<< veation
 
 ffbuild_depends() {
     return 0

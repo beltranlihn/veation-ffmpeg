@@ -1,7 +1,10 @@
 #!/bin/bash
 
+# >>> veation: bloque que escribe tools/aplicar-lock.sh desde versions.lock (no editar a mano)
+SCRIPT_PIEZA="snappy"
 SCRIPT_REPO="https://github.com/google/snappy.git"
-SCRIPT_COMMIT="9c28114a38866f6deeaa826db918293bc28ae410"
+SCRIPT_COMMIT="PENDIENTE"
+# <<< veation
 
 ffbuild_enabled() {
     return 0

@@ -1,7 +1,10 @@
 #!/bin/bash
 
+# >>> veation: bloque que escribe tools/aplicar-lock.sh desde versions.lock (no editar a mano)
+SCRIPT_PIEZA="x264"
 SCRIPT_REPO="https://code.videolan.org/videolan/x264.git"
-SCRIPT_COMMIT="0480cb05fa188d37ae87e8f4fd8f1aea3711f7ee"
+SCRIPT_COMMIT="PENDIENTE"
+# <<< veation
 
 ffbuild_enabled() {
     [[ $VARIANT == lgpl* ]] && return -1
@@ -15,6 +18,7 @@ ffbuild_dockerbuild() {
         --enable-pic
         --disable-lavf
         --disable-swscale
+        --disable-opencl
         --prefix="$FFBUILD_PREFIX"
     )
 

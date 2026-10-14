@@ -1,7 +1,10 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://git.code.sf.net/p/mingw-w64/mingw-w64.git"
+# >>> veation: bloque que escribe tools/aplicar-lock.sh desde versions.lock (no editar a mano)
+SCRIPT_PIEZA="mingw-w64"
+SCRIPT_REPO="https://github.com/mingw-w64/mingw-w64.git"
 SCRIPT_COMMIT="57b595039040eaa15bece85b7cc71d952281b269"
+# <<< veation
 
 ffbuild_depends() {
     return 0
@@ -22,9 +25,6 @@ ffbuild_dockerfinal() {
     to_df "COPY --link --from=${PREVLAYER} /opt/mingw/. /"
 }
 
-ffbuild_dockerdl() {
-    echo "retry-tool sh -c \"rm -rf mingw && git clone '$SCRIPT_REPO' mingw\" && cd mingw && git checkout \"$SCRIPT_COMMIT\""
-}
 
 ffbuild_dockerbuild() {
     if [[ -z "$COMPILER_SYSROOT" ]]; then

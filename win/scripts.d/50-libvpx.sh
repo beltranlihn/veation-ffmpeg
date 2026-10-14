@@ -1,7 +1,10 @@
 #!/bin/bash
 
+# >>> veation: bloque que escribe tools/aplicar-lock.sh desde versions.lock (no editar a mano)
+SCRIPT_PIEZA="libvpx"
 SCRIPT_REPO="https://chromium.googlesource.com/webm/libvpx"
-SCRIPT_COMMIT="5e680f30801d03c21078f8c4b772464752516211"
+SCRIPT_COMMIT="PENDIENTE"
+# <<< veation
 
 ffbuild_enabled() {
     [[ $TARGET == winarm64 ]] && return -1

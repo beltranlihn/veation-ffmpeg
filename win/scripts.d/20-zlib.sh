@@ -1,7 +1,10 @@
 #!/bin/bash
 
+# >>> veation: bloque que escribe tools/aplicar-lock.sh desde versions.lock (no editar a mano)
+SCRIPT_PIEZA="zlib"
 SCRIPT_REPO="https://github.com/madler/zlib.git"
-SCRIPT_COMMIT="767c4c947852e143f582c85f14cf573411df1b35"
+SCRIPT_COMMIT="PENDIENTE"
+# <<< veation
 
 ffbuild_enabled() {
     return 0

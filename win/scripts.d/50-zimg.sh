@@ -1,16 +1,15 @@
 #!/bin/bash
 
+# >>> veation: bloque que escribe tools/aplicar-lock.sh desde versions.lock (no editar a mano)
+SCRIPT_PIEZA="zimg"
 SCRIPT_REPO="https://github.com/sekrit-twc/zimg.git"
-SCRIPT_COMMIT="67e0603271c080e22c8429856dd4a8a56587e61e"
+SCRIPT_COMMIT="PENDIENTE"
+# <<< veation
 
 ffbuild_enabled() {
     return 0
 }
 
-ffbuild_dockerdl() {
-    default_dl .
-    echo "git submodule update --init --recursive --depth=1"
-}
 
 ffbuild_dockerbuild() {
     sed -i '1i #include <exception>' src/zimg/api/zimg.cpp

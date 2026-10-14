@@ -235,6 +235,18 @@ sort -u < Dockerfile.final >> Dockerfile
 rm Dockerfile.final
 
 FF_CONFIGURE="$(xargs <<< "$FF_CONFIGURE")"
+
+# [veation] build.sh pasa a configure SOLO la linea de piezas.conf. Cada opcion que pida un script de
+# scripts.d (ffbuild_configure) tiene que estar ya en ella; si no, un script sobrante o desfasado se
+# notaria aqui y no como una biblioteca que falta en silencio.
+[[ "$TARGET" == win64 ]] || { echo "ERROR: veation-ffmpeg solo compila win64 con este fork" >&2; exit 1; }
+PIEZAS_ARGS="$(../tools/piezas.sh args win)"
+for opt in $FF_CONFIGURE; do
+    if ! grep -qxF -- "$opt" <<< "$PIEZAS_ARGS"; then
+        echo "ERROR: un script de scripts.d pide «$opt», que no esta en piezas.conf" >&2
+        exit 1
+    fi
+done
 FF_CFLAGS="$(xargs <<< "$FF_CFLAGS")"
 FF_CXXFLAGS="$(xargs <<< "$FF_CXXFLAGS")"
 FF_LDFLAGS="$(xargs <<< "$FF_LDFLAGS")"

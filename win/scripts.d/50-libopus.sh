@@ -1,20 +1,18 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/xiph/opus.git"
-SCRIPT_COMMIT="503d81b138d76621aae4b12786e90de48aa8db3a"
+# >>> veation: bloque que escribe tools/aplicar-lock.sh desde versions.lock (no editar a mano)
+SCRIPT_PIEZA="opus"
+SCRIPT_REPO="https://downloads.xiph.org/releases/opus/opus-1.6.1.tar.gz"
+SCRIPT_SHA256="PENDIENTE"
+# <<< veation
 
 ffbuild_enabled() {
     return 0
 }
 
-ffbuild_dockerdl() {
-    default_dl .
-
-    # This is where they decided to put downloads for external dependencies, so it needs to run here
-    echo "./autogen.sh"
-}
 
 ffbuild_dockerbuild() {
+    # [veation] tarball de release 1.6.1: ya trae los datos del modelo DNN (BtbN los bajaba con autogen.sh)
     # re-run autoreconf explicitly because tools versions might have changed since it generared the dl cache
     autoreconf -isf
 

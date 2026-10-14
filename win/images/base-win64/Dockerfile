@@ -1,9 +1,21 @@
-ARG GH_REPO=ghcr.io/btbn/ffmpeg-builds
+# [veation] Imagen con la toolchain cruzada de BtbN (crosstool-ng: GCC 16.2.0, binutils 2.47,
+# mingw-w64 v14.0.0). Cambios (win/VEATION-CAMBIOS.md):
+#   - crosstool-ng en el commit del lock, comprobado tras el checkout (BtbN usa su HEAD);
+#   - los tarballs de la toolchain salen de fuentes/toolchain-win (contexto «vf-toolchain»), los
+#     mismos que van al paquete de fuente; ct-ng-config prohibe descargar (CT_FORBID_DOWNLOAD) y ct-ng
+#     comprueba ademas su sha512 contra los chksum de su propio arbol;
+#   - sin rustup ni el destino de Rust.
+ARG GH_REPO=vf.local/beltranlihn/veation-ffmpeg
 ARG BASE_TAG_SUFFIX=
 FROM $GH_REPO/base:latest${BASE_TAG_SUFFIX}
 
+ARG CTNG_COMMIT
+
 RUN --mount=src=ct-ng-config,dst=/.config \
+    --mount=type=bind,from=vf-toolchain,target=/ct-src \
     git clone --filter=blob:none https://github.com/crosstool-ng/crosstool-ng.git /ct-ng && cd /ct-ng && \
+    git checkout --detach "$CTNG_COMMIT" && \
+    test "$(git rev-parse HEAD)" = "$CTNG_COMMIT" && \
     ./bootstrap && \
     ./configure --enable-local && \
     make -j$(nproc) && \
@@ -26,12 +38,7 @@ RUN \
     apt-get -y clean autoclean && \
     rm -rf /var/lib/apt/lists/*
 
-ENV FFBUILD_TOOLCHAIN=x86_64-w64-mingw32 \
-    FFBUILD_RUST_TARGET=x86_64-pc-windows-gnu
-
-RUN \
-    rustup target add "$FFBUILD_RUST_TARGET" && \
-    echo "[target.$FFBUILD_RUST_TARGET]\nlinker = \"${FFBUILD_TOOLCHAIN}-gcc\"\nar = \"${FFBUILD_TOOLCHAIN}-gcc-ar\"\n" > "$CARGO_HOME"/config.toml
+ENV FFBUILD_TOOLCHAIN=x86_64-w64-mingw32
 
 ADD toolchain.cmake /toolchain.cmake
 ADD cross.meson /cross.meson

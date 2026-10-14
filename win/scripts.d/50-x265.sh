@@ -1,16 +1,16 @@
 #!/bin/bash
 
+# >>> veation: bloque que escribe tools/aplicar-lock.sh desde versions.lock (no editar a mano)
+SCRIPT_PIEZA="x265"
 SCRIPT_REPO="https://github.com/Multicorewareinc/x265.git"
-SCRIPT_COMMIT="020d7054dbecfd3be8e62efe33ff8a305d41856e"
+SCRIPT_COMMIT="PENDIENTE"
+# <<< veation
 
 ffbuild_enabled() {
     [[ $VARIANT == lgpl* ]] && return -1
     return 0
 }
 
-ffbuild_dockerdl() {
-    echo "git clone --filter=blob:none \"$SCRIPT_REPO\" . && git checkout \"$SCRIPT_COMMIT\""
-}
 
 ffbuild_dockerbuild() {
     local common_config=(
@@ -23,13 +23,14 @@ ffbuild_dockerbuild() {
         -DENABLE_ALPHA=ON
     )
 
-    sed -i '1i#include <cstdint>' source/dynamicHDR10/json11/json11.cpp
+    # [veation] HDR10+ apagado en las tres variantes: tiene programa de licencias propio y VEATION no lo
+    # usa. Sin el, json11.cpp no se compila y sobra el sed que BtbN le aplicaba (patches/MODIFICACIONES.md).
 
     if [[ $TARGET != *32 ]]; then
         mkdir 8bit 10bit 12bit
-        cmake "${common_config[@]}" -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DENABLE_HDR10_PLUS=ON -DMAIN12=ON -S source -B 12bit &
-        cmake "${common_config[@]}" -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DENABLE_HDR10_PLUS=ON -S source -B 10bit &
-        cmake "${common_config[@]}" -DEXTRA_LIB="x265_main10.a;x265_main12.a" -DEXTRA_LINK_FLAGS=-L. -DLINKED_10BIT=ON -DLINKED_12BIT=ON -S source -B 8bit &
+        cmake "${common_config[@]}" -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DENABLE_HDR10_PLUS=OFF -DMAIN12=ON -S source -B 12bit &
+        cmake "${common_config[@]}" -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DENABLE_HDR10_PLUS=OFF -S source -B 10bit &
+        cmake "${common_config[@]}" -DEXTRA_LIB="x265_main10.a;x265_main12.a" -DEXTRA_LINK_FLAGS=-L. -DLINKED_10BIT=ON -DLINKED_12BIT=ON -DENABLE_HDR10_PLUS=OFF -S source -B 8bit &
         wait
 
         cat >Makefile <<"EOF"

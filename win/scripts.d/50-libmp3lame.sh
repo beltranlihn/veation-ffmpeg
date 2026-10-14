@@ -1,7 +1,10 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://svn.code.sf.net/p/lame/svn/trunk/lame"
-SCRIPT_REV="6835"
+# >>> veation: bloque que escribe tools/aplicar-lock.sh desde versions.lock (no editar a mano)
+SCRIPT_PIEZA="lame"
+SCRIPT_REPO="https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz"
+SCRIPT_SHA256="PENDIENTE"
+# <<< veation
 
 ffbuild_depends() {
     echo base
@@ -12,12 +15,9 @@ ffbuild_enabled() {
     return 0
 }
 
-ffbuild_dockerdl() {
-    echo "retry-tool sh -c \"rm -rf lame && svn checkout '${SCRIPT_REPO}@${SCRIPT_REV}' lame\" && cd lame"
-    echo "autoreconf -i"
-}
 
 ffbuild_dockerbuild() {
+    # [veation] tarball de release 3.100 (BtbN usaba el trunk de svn r6835): trae configure
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --disable-shared

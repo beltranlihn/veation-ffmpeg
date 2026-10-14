@@ -1,24 +1,18 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://git.savannah.gnu.org/git/libiconv.git"
-SCRIPT_MIRROR="git://git.git.savannah.gnu.org/libiconv.git"
-SCRIPT_COMMIT="1df3087ba8110c7f3ed3eb5f8869b814dbbe00b0"
-
-SCRIPT_REPO2="https://git.savannah.gnu.org/git/gnulib.git"
-SCRIPT_MIRROR2="https://github.com/coreutils/gnulib.git"
-SCRIPT_COMMIT2="eb72eb6f75f5621c5d648acd11467fd124584617"
+# >>> veation: bloque que escribe tools/aplicar-lock.sh desde versions.lock (no editar a mano)
+SCRIPT_PIEZA="libiconv"
+SCRIPT_REPO="https://ftp.gnu.org/gnu/libiconv/libiconv-1.19.tar.gz"
+SCRIPT_SHA256="PENDIENTE"
+# <<< veation
 
 ffbuild_enabled() {
     return 0
 }
 
-ffbuild_dockerdl() {
-    echo "retry-tool sh -c \"rm -rf iconv && git clone '$SCRIPT_MIRROR' iconv\" && git -C iconv checkout \"$SCRIPT_COMMIT\""
-    echo "cd iconv && retry-tool sh -c \"rm -rf gnulib && git clone --filter=blob:none '$SCRIPT_MIRROR2' gnulib\" && git -C gnulib checkout \"$SCRIPT_COMMIT2\" && rm -rf gnulib/.git"
-}
 
 ffbuild_dockerbuild() {
-    (unset CC CFLAGS GMAKE && ./autogen.sh)
+    # [veation] tarball de release: trae configure, no hace falta autogen.sh ni gnulib
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"

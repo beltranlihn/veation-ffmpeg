@@ -1,15 +1,14 @@
 #!/bin/bash
 
+# >>> veation: bloque que escribe tools/aplicar-lock.sh desde versions.lock (no editar a mano)
+SCRIPT_PIEZA="ffnvcodec"
 SCRIPT_REPO="https://github.com/FFmpeg/nv-codec-headers.git"
-SCRIPT_COMMIT="eddcea9e27f6b772057c9b3f87de2cc1737faffc"
+SCRIPT_COMMIT="PENDIENTE"
+# <<< veation
 
-SCRIPT_REPO2="https://github.com/FFmpeg/nv-codec-headers.git"
-SCRIPT_COMMIT2="ced4f8eba3ba5dd431932cba17928f0dffdaeb2b"
-SCRIPT_BRANCH2="sdk/13.0"
-
-SCRIPT_REPO3="https://github.com/FFmpeg/nv-codec-headers.git"
-SCRIPT_COMMIT3="833faee5f7b8d3f56444347c587f4aed11ee213f"
-SCRIPT_BRANCH3="sdk/11.1"
+# [veation] Una sola rama de cabeceras, la decidida (piezas.conf: nvenc-cabeceras = n12.1.14.0, driver
+# NVIDIA >= 531.61). BtbN elegia entre tres ramas segun la version de FFmpeg. Sin --enable-cuda-llvm:
+# los filtros CUDA no se usan y meterian clang en la receta (FFMPEG-PROPIO.md, 3.2).
 
 ffbuild_enabled() {
     [[ $TARGET == winarm64 ]] && (( $(ffbuild_ffver) <= 801 )) && return -1
@@ -17,30 +16,16 @@ ffbuild_enabled() {
     return 0
 }
 
-ffbuild_dockerdl() {
-    default_dl ffnvcodec
-    echo "git-mini-clone \"$SCRIPT_REPO2\" \"$SCRIPT_COMMIT2\" ffnvcodec2"
-    echo "git-mini-clone \"$SCRIPT_REPO3\" \"$SCRIPT_COMMIT3\" ffnvcodec3"
-}
-
 ffbuild_dockerbuild() {
-    if (( $FFVER < 800 )); then
-        cd ffnvcodec3
-    elif (( $FFVER <= 801 )); then
-        cd ffnvcodec2
-    else
-        cd ffnvcodec
-    fi
-
     make PREFIX="$FFBUILD_PREFIX" DESTDIR="$FFBUILD_DESTDIR" install
 }
 
 ffbuild_configure() {
-    echo --enable-ffnvcodec --enable-cuda-llvm
+    echo --enable-ffnvcodec
 }
 
 ffbuild_unconfigure() {
-    echo --disable-ffnvcodec --disable-cuda-llvm
+    echo --disable-ffnvcodec
 }
 
 ffbuild_cflags() {

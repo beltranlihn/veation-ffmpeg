@@ -1,0 +1,16 @@
+Modified by Alma Digital Studio, AAAA-MM-DD: RESERVA, NO SE APLICA en veation.1.
+FFmpeg 8.1.3 configure: link snappy with -lc++ instead of -lstdc++ (macOS only).
+Plan B if the libstdc++.tbd shim of mac/ffmpeg.sh does not work (patches/MODIFICACIONES.md).
+
+--- a/configure
++++ b/configure
+@@ -7378,7 +7378,8 @@
+ enabled libshine          && require_pkg_config libshine shine shine/layer3.h shine_encode_buffer
+ enabled libsmbclient      && { check_pkg_config libsmbclient smbclient libsmbclient.h smbc_init ||
+                                require libsmbclient libsmbclient.h smbc_init -lsmbclient; }
+-enabled libsnappy         && require libsnappy snappy-c.h snappy_compress -lsnappy -lstdc++
++# Modified by Alma Digital Studio, AAAA-MM-DD: on macOS there is no libstdc++; snappy is linked with libc++ (veation-ffmpeg, patches/MODIFICACIONES.md)
++enabled libsnappy         && require libsnappy snappy-c.h snappy_compress -lsnappy -lc++
+ enabled libsoxr           && require libsoxr soxr.h soxr_create -lsoxr
+ enabled libssh            && require_pkg_config libssh "libssh >= 0.6.0" libssh/sftp.h sftp_init
+ enabled libspeex          && require_pkg_config libspeex speex speex/speex.h speex_decoder_init

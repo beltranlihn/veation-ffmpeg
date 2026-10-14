@@ -1,7 +1,10 @@
 #!/bin/bash
 
+# >>> veation: bloque que escribe tools/aplicar-lock.sh desde versions.lock (no editar a mano)
+SCRIPT_PIEZA="svtav1"
 SCRIPT_REPO="https://gitlab.com/AOMediaCodec/SVT-AV1.git"
-SCRIPT_COMMIT="5ed9ffbcb5086da23f30fe9bc5b00145358462da"
+SCRIPT_COMMIT="PENDIENTE"
+# <<< veation
 
 ffbuild_enabled() {
     [[ $TARGET == win32 ]] && return -1
@@ -9,9 +12,6 @@ ffbuild_enabled() {
     return 0
 }
 
-ffbuild_dockerdl() {
-    echo "git clone \"$SCRIPT_REPO\" . && git checkout \"$SCRIPT_COMMIT\""
-}
 
 ffbuild_dockerbuild() {
     mkdir build && cd build

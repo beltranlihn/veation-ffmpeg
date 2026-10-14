@@ -30,9 +30,11 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
-REPO="${GITHUB_REPOSITORY:-btbn/ffmpeg-builds}"
+# [veation] Las imagenes solo existen en el docker local del runner: nunca se publican (FFMPEG-PROPIO.md,
+# 2.7). «vf.local» no es un registro real; bake resuelve los FROM con contexts y output=type=docker.
+REPO="${GITHUB_REPOSITORY:-beltranlihn/veation-ffmpeg}"
 REPO="${REPO,,}"
-REGISTRY="${REGISTRY_OVERRIDE:-ghcr.io}"
+REGISTRY="${REGISTRY_OVERRIDE:-vf.local}"
 BASE_IMAGE="${REGISTRY}/${REPO}/base:latest"
 TARGET_IMAGE="${REGISTRY}/${REPO}/base-${TARGET}:latest"
 IMAGE="${REGISTRY}/${REPO}/${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}:latest"
@@ -83,11 +85,13 @@ ffbuild_depends() {
     echo base
 }
 
+# [veation] Cada etapa compila SIN RED: todo su fuente tiene que venir de .cache/downloads, que
+# download.sh llena desde las fuentes verificadas. Si una etapa necesita bajar algo, falla aqui.
 ffbuild_dockerstage() {
     if [[ -n "$SELFCACHE" ]]; then
-        to_df "RUN --mount=src=${SELF},dst=/stage.sh --mount=src=${SELFCACHE},dst=/cache.tar.xz run_stage /stage.sh"
+        to_df "RUN --network=none --mount=src=${SELF},dst=/stage.sh --mount=src=${SELFCACHE},dst=/cache.tar.xz run_stage /stage.sh"
     else
-        to_df "RUN --mount=src=${SELF},dst=/stage.sh run_stage /stage.sh"
+        to_df "RUN --network=none --mount=src=${SELF},dst=/stage.sh run_stage /stage.sh"
     fi
 }
 

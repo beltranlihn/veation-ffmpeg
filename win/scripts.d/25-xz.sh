@@ -1,7 +1,10 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/tukaani-project/xz.git"
-SCRIPT_COMMIT="3b1efb04d17c3a9ef7f473d73af13f1531428ffe"
+# >>> veation: bloque que escribe tools/aplicar-lock.sh desde versions.lock (no editar a mano)
+SCRIPT_PIEZA="xz"
+SCRIPT_REPO="https://github.com/tukaani-project/xz/releases/download/v5.8.4/xz-5.8.4.tar.xz"
+SCRIPT_SHA256="PENDIENTE"
+# <<< veation
 
 ffbuild_depends() {
     echo base
@@ -13,7 +16,7 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerbuild() {
-    ./autogen.sh --no-po4a --no-doxygen
+    # [veation] tarball de release: trae configure, no hace falta autogen.sh
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"

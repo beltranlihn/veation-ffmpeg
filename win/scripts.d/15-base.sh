@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# >>> veation: bloque que escribe tools/aplicar-lock.sh desde versions.lock (no editar a mano)
+SCRIPT_PIEZA="-"
+# <<< veation
+
 SCRIPT_SKIP="1"
 
 ffbuild_depends() {
