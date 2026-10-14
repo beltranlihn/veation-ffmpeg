@@ -59,7 +59,8 @@ const VERSION = opt('--version-esperada') || (() => { try {
   const lock = fs.readFileSync(path.join(RAIZ, 'versions.lock'), 'utf8'); const ref = /^ffmpeg\s+\S+\s+\S+\s+\S+\s+(\S+)/m.exec(lock)[1];
   const extra = /^--extra-version=(\S+)/m.exec(fs.readFileSync(path.join(RAIZ, 'piezas.conf'), 'utf8'))[1]; return `${ref}-${extra}`; } catch { return null; } })();
 
-const GYAN = 'C:/Users/beltr/AppData/Local/Microsoft/WinGet/Packages/Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe/ffmpeg-8.1-full_build/bin/';
+/* el juez de Windows instalado con winget (Gyan.FFmpeg), en la carpeta del usuario que ejecuta; --juez manda sobre esto */
+const GYAN = path.join(os.homedir(), 'AppData', 'Local', 'Microsoft', 'WinGet', 'Packages', 'Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe', 'ffmpeg-8.1-full_build', 'bin') + path.sep;
 /* --sin-juez: no buscar ninguno (en el runner Intel del Mac no hay FFmpeg de Homebrew con bottle; su F se pasa aparte) */
 const JUEZ = flag('--sin-juez') ? null : (opt('--juez') || [GYAN + 'ffmpeg.exe', '/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg'].find(p => fs.existsSync(p) && path.resolve(p) !== path.resolve(FF)));
 const hermano = path.join(path.dirname(FF), 'ffprobe' + (OS === 'win' ? '.exe' : ''));
