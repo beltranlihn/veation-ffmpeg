@@ -16,6 +16,8 @@
 #           rol:herramienta se usa sin modificar; NO va al paquete (GPLv3 1, «System Libraries» / herramientas)
 #           rol:prueba      solo para las pruebas de la CI; nunca se distribuye
 #           rol:receta      el fork de BtbN (win/); va al paquete como parte de la receta
+#           rol:instalador  fuente de un plug-in del instalador de VEATION (no de FFmpeg); va a su propia
+#                           release (workflow «instalador-fuente»), nunca al paquete de FFmpeg
 #           commit: sha256: digest:   identidad; PENDIENTE hasta que tools/congelar.sh la calcule
 #           gpg:<huella> firma:<url>  firma OpenPGP que congelar.sh y fetch.sh verifican
 #           clave:<url>               de donde sacar la clave si no esta en los servidores (vale solo
@@ -81,7 +83,9 @@ ubuntu-base       win      oci          docker.io/library/ubuntu:26.04          
 autoconf-deb      win      herramienta  https://archive.ubuntu.com/ubuntu/pool/main/a/autoconf/autoconf_2.73-2_all.deb    2.73-2         rol:herramienta sha256:PENDIENTE
 cmake-linux       win      herramienta  https://github.com/Kitware/CMake/releases/download/v3.31.9/cmake-3.31.9-linux-x86_64.tar.gz 3.31.9 rol:herramienta sha256:PENDIENTE
 cmake-mac         mac      herramienta  https://github.com/Kitware/CMake/releases/download/v3.31.9/cmake-3.31.9-macos-universal.tar.gz 3.31.9 rol:herramienta sha256:PENDIENTE
-meson             win,mac  herramienta  https://github.com/mesonbuild/meson/releases/download/1.12.1/meson-1.12.1.tar.gz  1.12.1         rol:herramienta sha256:PENDIENTE
+# meson 1.11.2 y no 1.12.x: desde la 1.12 meson.py exige Python 3.10 y en el Mac se ejecuta con el
+# /usr/bin/python3 de Xcode, que es 3.9.6 (1.11.2 pide 3.7). La misma version en los dos sistemas.
+meson             win,mac  herramienta  https://github.com/mesonbuild/meson/releases/download/1.11.2/meson-1.11.2.tar.gz  1.11.2         rol:herramienta sha256:PENDIENTE
 ninja-mac         mac      herramienta  https://github.com/ninja-build/ninja/releases/download/v1.13.2/ninja-mac.zip       1.13.2         rol:herramienta sha256:PENDIENTE
 nasm              mac      herramienta  https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/nasm-2.16.03.tar.xz            2.16.03        rol:herramienta sha256:PENDIENTE
 pkgconf           mac      herramienta  https://distfiles.ariadne.space/pkgconf/pkgconf-2.5.1.tar.xz                      2.5.1          rol:herramienta sha256:PENDIENTE
@@ -101,3 +105,14 @@ sde-win           win      herramienta  PENDIENTE                               
 # --------------------------------------------------------------- referencias (no se descargan en build.yml)
 scancode          ninguno  referencia   https://pypi.org/project/scancode-toolkit/                                        32.5.0         rol:herramienta
 electron          ninguno  referencia  https://github.com/electron/electron.git                                          v44.7.0        rol:referencia chromium:152.0.7977.130
+electron-builder  ninguno  referencia  https://github.com/electron-userland/electron-builder.git                         26.15.2        rol:referencia nsis-resources:3.4.1
+
+# ------------------------------------- plug-ins LGPL del instalador NSIS de VEATION (workflow instalador-fuente)
+# THIRD-PARTY-NOTICES de VEATION (seccion 13) promete el fuente de StdUtils y Nsis7z «in the versions
+# used». Son los de nsis-resources-3.4.1 de electron-builder 26.15.2 (plugins/x86-unicode, medidos en la
+# cache de electron-builder el 2026-10-14): StdUtils.dll 1.1.4.0 (sha256 b72e9013a6204e9f01076dc38dabbf30870d44dfc66962adbf73619d4331601e)
+# y nsis7z.dll 19.00.0.0 (sha256 b393f05e8ff919ef071181050e1873c9a776e1a0ae8329aefff7007d0cadf592).
+# StdUtils: la etiqueta 1.14 del repositorio de su autor. Nsis7z: el archivo de la pagina del plug-in en el
+# wiki de NSIS; que traiga el fuente esta SIN VERIFICAR (la pagina no lo dice) y el workflow lo comprueba.
+stdutils          win      git          https://github.com/lordmulder/stdutils.git                                        1.14           rol:instalador commit:4e1117321001e54dcd2c52f72d3c359d5215e426 dll:StdUtils.dll=b72e9013a6204e9f01076dc38dabbf30870d44dfc66962adbf73619d4331601e
+nsis7z            win      tarball      https://nsis.sourceforge.io/mediawiki/images/6/69/Nsis7z_19.00.7z                19.00          rol:instalador sha256:PENDIENTE dll:nsis7z.dll=b393f05e8ff919ef071181050e1873c9a776e1a0ae8329aefff7007d0cadf592

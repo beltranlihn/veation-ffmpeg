@@ -71,3 +71,6 @@ jobs:
           gh release create "$tag" out/*.tar.xz out/SHA256SUMS out/electron-ffmpeg.json --draft \
             --target "$GITHUB_SHA" --title "FFmpeg de Electron $E (fuente LGPL-2.1)" --notes-file out/NOTAS.md
           gh release edit "$tag" --draft=false
+          # El ajuste «immutable releases» es manual: si no esta, la release sale editable sin aviso.
+          inm="$(gh api "repos/$GH_REPO/releases/tags/$tag" --jq .immutable)"
+          test "$inm" = true || { echo "ROJO: la release $tag NO es inmutable (immutable=$inm)"; exit 1; }

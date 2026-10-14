@@ -7,15 +7,25 @@
 # Las lineas de -buildconf no van aqui: la diferencia permitida son exactamente las secciones de
 # configure propias de cada sistema en piezas.conf, y paridad.mjs las deduce de alli.
 # Una diferencia que no case con nada pone la puerta en ROJO; solo se anade aqui tras revisarla.
+#
+# Revisado contra el fuente de FFmpeg 8.1.3:
+#   - ddagrab y gfxcapture: filtros fuente de captura de pantalla de Windows (configure:
+#     ddagrab_filter_deps="d3d11va IDXGIOutput1 DXGI_OUTDUPL_FRAME_INFO", gfxcapture_filter_deps="cxx17
+#     threads d3d11va IGraphicsCaptureItemInterop ..."). --disable-indevs no los quita porque son
+#     filtros. No cargan codigo ajeno; se admiten como lo propio de Windows. gfxcapture puede no salir
+#     si las cabeceras de mingw-w64 no traen sus tipos: admitirlo no obliga a que este.
+#   - hwaccel amf: libavutil/hwcontext.c lo registra con CONFIG_AMF (--enable-amf); B4 lo exige.
+#   - en el Mac, solo aac_at de AudioToolbox: los PCM van por nombre en piezas.conf (sin pcm_alaw_at ni
+#     pcm_mulaw_at), y un alac_at o ilbc_at que apareciese saldria aqui en rojo (y en B1).
 
 encoders  win  *_nvenc *_amf *_qsv *_mf
-encoders  mac  *_videotoolbox *_at
+encoders  mac  *_videotoolbox aac_at
 
 decoders  win  *_cuvid *_qsv *_amf
 decoders  mac  *_at
 
-filters   win  *_cuda hwupload_cuda *_qsv *_amf *_d3d11 *_d3d11va *_d3d12 *_d3d12va *_dxva2
+filters   win  *_cuda hwupload_cuda *_qsv *_amf *_d3d11 *_d3d11va *_d3d12 *_d3d12va *_dxva2 ddagrab gfxcapture
 filters   mac  *_vt *_videotoolbox
 
-hwaccels  win  cuda d3d11va d3d12va dxva2 qsv
+hwaccels  win  cuda d3d11va d3d12va dxva2 qsv amf
 hwaccels  mac  videotoolbox

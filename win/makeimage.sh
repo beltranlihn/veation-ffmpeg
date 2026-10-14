@@ -5,8 +5,9 @@
 #   - cache de buildx: VF_CACHE=gha (cache de Actions, no descargable publicamente) o VF_CACHE=none
 #     (una release se compila siempre en frio); en local, VF_CACHE=local usa .cache/ como BtbN;
 #   - la imagen base se fija por digest y sus herramientas por sha256 (versions.lock);
-#   - la toolchain (crosstool-ng) se compila con los tarballs de fuentes/toolchain-win y sin
-#     permiso para descargar nada (ct-ng-config: CT_FORBID_DOWNLOAD);
+#   - la toolchain: crosstool-ng sale de su archivo en fuentes/toolchain-win (CTNG_ARCHIVO) y se
+#     compila con los tarballs de esa misma carpeta, sin red (RUN --network=none) y sin permiso para
+#     descargar nada (ct-ng-config: CT_FORBID_DOWNLOAD);
 #   - las etapas de bibliotecas compilan sin red (util/vars.sh).
 set -xeo pipefail
 cd "$(dirname "$0")"
@@ -86,7 +87,7 @@ bake_images() {
 
             to_bake 'target "target-base" {'
             to_bake '  context    = "images/base-%s"' "$TARGET"
-            to_bake '  args       = { GH_REPO = "%s", CTNG_COMMIT = "%s" }' "$GH_REPO" "$("$LOCK" get crosstool-ng commit)"
+            to_bake '  args       = { GH_REPO = "%s", CTNG_COMMIT = "%s", CTNG_ARCHIVO = "%s" }' "$GH_REPO" "$("$LOCK" get crosstool-ng commit)" "$(basename "$("$LOCK" archivo crosstool-ng)")"
             to_bake '  contexts   = { "%s/base" = "target:base", "vf-toolchain" = "%s" }' "$GH_REPO" "$VF_FUENTES/toolchain-win"
             to_bake '  tags       = ["%s"]' "$TARGET_IMAGE"
             to_bake '  output     = ["type=docker"]'

@@ -63,7 +63,13 @@ for STAGE in scripts.d/*.sh scripts.d/*/*.sh; do
 
 		eval "set -e; \$STG"
 
-		tar -I "xz -T0" -cpf "\$TGT.tmp" .
+		# [veation] tar determinista: BuildKit mete en la clave de cache el contenido del archivo que monta
+		# cada etapa, asi que con bytes distintos en cada ejecucion la cache gha no acertaria nunca. Los
+		# archivos conservan la fecha que traen de fuentes/ (ya fija); los directorios que crea la
+		# extraccion (el «.» incluido) llevarian la hora de hoy y se ponen a 0; orden por nombre y
+		# propietario 0:0. xz multihilo da la misma salida con cualquier numero de hilos (xz >= 5.4).
+		find . -type d -exec touch -h -d @0 {} +
+		tar --sort=name --format=gnu --owner=0 --group=0 --numeric-owner -I "xz -T0" -cf "\$TGT.tmp" .
 		mv "\$TGT.tmp" "\$TGT"
 		rm -f "/dldir/\${DLNAME}.tar.xz"
 		ln -s "\${DLNAME}_\${DLHASH}.tar.xz" "/dldir/\${DLNAME}.tar.xz"

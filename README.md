@@ -24,6 +24,15 @@ Cada release `v<FFmpeg>-veation.<N>` (la primera, `v8.1.3-veation.1`) lleva:
 
 Se publica como **pre-release** y pasa a release cuando VEATION la acepta tras su tanda completa de
 pruebas (§6, fase 5). Una release no se edita ni se borra: un error se corrige con `veation.<N+1>`.
+`build` comprueba, nada más publicarla, que GitHub la marcó como inmutable (sus assets ya no pueden
+cambiar). La inmutabilidad **no impide borrarla**: lo que garantiza que el fuente siga disponible los años
+que pide la GPLv3 §6 es el espejo en el servidor de descarga de VEATION, que es requisito para vender
+(§4.1), no un refuerzo.
+
+Aparte, y sin relación con FFmpeg, la release `nsis-plugins-electron-builder-<versión>-source` (workflow
+`instalador-fuente`) publica el fuente de los dos plug-ins LGPL del instalador de Windows de VEATION
+(StdUtils 1.14 y Nsis7z 19.00, los de electron-builder 26.15.2), que su `THIRD-PARTY-NOTICES.txt`
+(sección 13) promete. Esa sección tiene que apuntar a esa release, no a la de FFmpeg.
 
 ## Licencia
 
@@ -35,6 +44,12 @@ pruebas (§6, fase 5). Una release no se edita ni se borra: un error se corrige 
 
 FFmpeg es una marca de Fabrice Bellard, creador del proyecto FFmpeg. Alma Digital Studio no es
 propietaria de FFmpeg.
+
+`FFMPEG-NOTICES.txt` cubre **solo** lo que va dentro de estos binarios. No sustituye los avisos de
+código propio de VEATION: por ejemplo, la implementación de Snappy en JavaScript de su codificador y
+decodificador HAP sigue necesitando su aviso BSD-3-Clause en el `THIRD-PARTY-NOTICES.txt` de VEATION.
+De la sección de snappy de ese archivo solo puede pasar aquí la frase sobre el libsnappy enlazado en
+FFmpeg (§4.4 decía que la sección entera pasaba a `FFMPEG-NOTICES.txt`).
 
 ## Qué lleva el binario
 
@@ -56,27 +71,33 @@ código ajeno. Los codificadores van por **lista blanca** (`--disable-encoders` 
 | `versions.lock` | **única** fuente de versiones: FFmpeg, bibliotecas, toolchain, herramientas, con su commit o sha256 |
 | `piezas.conf` | **única** lista de piezas y línea de configure de cada sistema; lo prohibido que miden las puertas |
 | `expected/` | `-buildconf` esperado de cada sistema (generado de `piezas.conf`), lo que puede diferir entre Windows y Mac, DLL de sistema admitidas, avisos de configure admitidos |
-| `patches/` | `MODIFICACIONES.md`: inventario de toda modificación de un fuente de terceros (en `veation.1`, dos líneas heredadas de BtbN para zimg y libvpl); `reserva/`: el parche de snappy del Mac, que NO se aplica |
+| `patches/` | `MODIFICACIONES.md`: inventario de toda modificación de un fuente de terceros (en `veation.1`, dos líneas heredadas de BtbN para zimg y libvpl, y los parches que crosstool-ng aplica a GCC y mingw-w64 al compilar la toolchain); `reserva/`: el parche de snappy del Mac, que NO se aplica |
 | `win/` | fork de BtbN @`63ac3265`, recortado y adaptado (`win/VEATION-CAMBIOS.md`) |
 | `mac/` | compilación propia desde fuente, nativa en cada arquitectura |
 | `tools/` | descarga y verificación, archivado, puertas, prueba de comportamiento, paridad, avisos, paquete de fuente |
 | `notices/` | qué textos de licencia tiene cada pieza y su revisión a mano |
-| `.github/workflows/` | `build`, `verificar-fuente`, `electron-ffmpeg-source`, `congelar`, `comprobar` |
+| `.github/workflows/` | `build`, `verificar-fuente` (también lo llama `build` antes de publicar), `electron-ffmpeg-source`, `instalador-fuente`, `congelar`, `comprobar` |
 
 Principios:
 
 1. **Lo que se compila es lo que se publica como fuente.** `tools/fetch.sh` descarga y verifica cada
    pieza (commit exacto, etiqueta sin mover, sha256, firma de FFmpeg) y `tools/archivar.sh` la convierte
    en `fuentes/` con `MANIFIESTO.tsv`. Los dos sistemas compilan **solo** desde ahí, sin red; el paquete de
-   fuente es esa misma carpeta más la receta. En Windows, hasta la toolchain (crosstool-ng) se compila
-   con los tarballs de `fuentes/toolchain-win` y con las descargas prohibidas.
+   fuente es esa misma carpeta más la receta. En Windows, hasta la toolchain sale de ahí: crosstool-ng se
+   extrae de su archivo en `fuentes/toolchain-win` (no se clona) y compila GCC, binutils y mingw-w64 con
+   los tarballs de esa carpeta, sin red y con las descargas prohibidas. Lo único que baja de la red son
+   herramientas usadas sin modificar (fijadas por sha256) y los paquetes de Ubuntu de la imagen base
+   (`README-SOURCE.md`, dentro del paquete, lo detalla).
 2. **Cada puerta sabe fallar.** Cada comprobación tiene un control que la pone en rojo y que se ejecuta
    en la CI: el FFmpeg de Homebrew contra las puertas del Mac, un exe que importa `mfplat.dll` contra la
-   de importaciones, el paquete de fuente sin snappy contra la reconstrucción, y tres controles sin
-   compilar en cada push. Las puertas estáticas y la prueba de comportamiento se han probado contra el
-   binario de gyan que VEATION lleva hoy: salen en rojo exactamente donde deben.
+   de importaciones, el paquete de fuente sin snappy (Windows, Mac y la comprobación de fuentes) y sin el
+   tarball de GCC (crosstool-ng) contra la reconstrucción, un objeto para macOS 14 contra el centinela de
+   `minos` del enlazador, y tres controles sin compilar en cada push. Cada control exige el **motivo**
+   exacto del fallo, no solo que falle. Las puertas estáticas y la prueba de comportamiento se han probado
+   contra el binario de gyan que VEATION lleva hoy: salen en rojo exactamente donde deben.
 3. **Nada se publica a medias.** Las imágenes Docker (llevan binarios GPL) no salen del runner; la cache
-   es la de Actions. Una release se compila en frío.
+   es la de Actions. Una release se compila en frío, y el paquete de fuente reconstruye los binarios
+   (`verificar-fuente`) **antes** de publicarla.
 
 ### Decisión: binario universal en el Mac
 
@@ -92,6 +113,10 @@ El Mac se compila **de forma nativa en cada arquitectura** (arm64 en `macos-15`,
 - Compilar x86_64 en su runner evita la compilación cruzada (cada biblioteca con su propia forma de
   hacerla) y permite probarlo sin Rosetta. Coste: unos 2× de tamaño. Límite conocido: GitHub anuncia
   `macos-15-intel` hasta agosto de 2027; después habrá que compilar x86_64 de forma cruzada en arm64.
+- Las dos rodajas se prueban: `ff-checklist` corre nativo en cada runner; el corpus de Windows se
+  decodifica con el universal en `macos-15` **y** en `macos-15-intel` (paridad P6 por arquitectura); y la
+  puerta F de la rodaja x86_64 (decodificar igual que el juez) se pasa en `macos-15` con Rosetta, porque
+  el FFmpeg de Homebrew que hace de juez no tiene bottle para Intel.
 - `manifest.json` da el `buildconf_sha256` **por arquitectura**: `scripts/comprobar-ffmpeg.mjs` de
   VEATION tiene que elegir el de `process.arch`.
 
@@ -107,16 +132,55 @@ WSL en el equipo donde se escribió). Orden:
    (`git apply congelar.patch && tools/comprobar-repo.sh --congelado`). El valor de `sde-win` (URL del
    kit de Intel SDE) lo tiene que poner una persona tras leer sus términos; mientras tanto la puerta I sale
    «NO MEDIDA» y `build` sigue.
-3. **Compilar** con Actions › `build` › Run workflow (sin etiqueta: no publica). Lo esperable en la primera
-   vuelta es que alguna puerta salga en rojo por algo que no se ha podido medir aquí (ver «SIN VERIFICAR»);
-   se corrige y se repite. Las DLL que importe de verdad el binario pueden pedir ampliar
-   `expected/dll-sistema.txt` (solo con DLL del sistema: el job de Windows lo mide contra el System32 real).
+3. **Compilar** con Actions › `build` › Run workflow (sin etiqueta: no publica; con `verificar_fuente`,
+   que viene marcado, reconstruye además desde el paquete de fuente y pasa sus controles negativos). Lo
+   esperable en la primera vuelta es que alguna puerta salga en rojo por algo que no se ha podido medir
+   aquí (ver «SIN VERIFICAR»); se corrige y se repite. Las DLL que importe de verdad el binario pueden pedir
+   ampliar `expected/dll-sistema.txt` (solo con DLL del sistema: el job de Windows lo mide contra el
+   System32 real).
 4. **Revisar los avisos**: leer los textos de `out/avisos/licencias/` (artefacto `release`) y copiar
    las líneas de `revision.txt` (artefacto `avisos-revision`) a `notices/*/REVISADO`. Ejecutar `build`
-   con `scancode: true`, revisar `scancode-resumen.json` y copiarlo a `notices/scancode-base.json`.
-5. **Fuente de Electron**: Actions › `electron-ffmpeg-source` con `publicar`.
-6. **Etiqueta**: `git tag v8.1.3-veation.1 && git push origin v8.1.3-veation.1`. `build` publica la
-   pre-release y `verificar-fuente` la reconstruye desde su paquete de fuente.
+   con `scancode: true` y revisar `scancode-propuesta.json` (artefacto `scancode`): cada `PENDIENTE` es una
+   licencia del fuente que los textos publicados no recogen; se añade su texto a `notices/<pieza>` o se
+   escribe por qué no hace falta aviso. Después, copiarla a `notices/scancode-base.json` sin `_estado`.
+5. **Fuentes de terceros que publica este repositorio para VEATION**: Actions › `electron-ffmpeg-source`
+   con `publicar` (la `ffmpeg.dll` de Electron) y Actions › `instalador-fuente` con `publicar` (StdUtils y
+   Nsis7z del instalador; antes, `congelar` calcula el sha256 del archivo de Nsis7z, y el workflow falla si
+   ese archivo no trae el fuente).
+6. **Etiqueta**: `git tag v8.1.3-veation.1 && git push origin v8.1.3-veation.1`. `build` compila,
+   reconstruye desde el paquete de fuente (`verificar-fuente`, llamado antes de publicar), publica la
+   pre-release, comprueba que quedó inmutable y que lo publicado es byte a byte lo verificado. Después,
+   `verificar-fuente` vuelve a reconstruir la última release una vez al mes (o a mano).
+
+## SIN VERIFICAR hasta la primera ejecución en Actions
+
+Lo que se ha comprobado leyendo el fuente de cada versión del lock, pero que solo la CI puede medir:
+
+- **Windows.** Que `-hwaccels` liste `amf` (B4 lo exige) y que `-filters` traiga `ddagrab` y, si las
+  cabeceras de mingw-w64 lo permiten, `gfxcapture` (permitidos en la paridad); que configure no dé ningún
+  `WARNING` (AV2: los dos de `pcm_*_at` desaparecen con la lista PCM por nombre); que la caché `gha` acierte
+  en las etapas de bibliotecas en la segunda ejecución (tar determinista de `download.sh`: buscar `CACHED`
+  en el log); crosstool-ng compilado desde su archivo (`bootstrap` sin `.git`, `.tarball-version`, `ct-ng
+  version`) y su compilación entera sin red; el mensaje `gcc: download failed` del control negativo de la
+  toolchain; las rutas reales del runtime en `linked-win.txt` (atribución a gcc / mingw-w64 y puerta L4,
+  que pone en rojo lo de `lib/gcc/` que no esté en la lista de gcc y lo prohibido; probada aquí con
+  trazas sintéticas, no con la de GNU ld real).
+- **Mac.** meson 1.11.2 con el Python 3.9.6 de Xcode 16.4 (`mac/herramientas.sh` exige la versión del lock
+  a cada herramienta; esa red se ha visto en rojo aquí con la salida de meson 1.12.1 simulada, no en un
+  Mac); el shim `libstdc++.tbd` y `STL_LIBS=-lc++` en zimg; que el enlazador de Xcode 16.4
+  avise de un objeto con `minos` 14.0 enlazado a 13.0 (si no, `mac/ffmpeg.sh` para y lo dice); `sandbox-exec`
+  sin red también en `build`; que `macos-15` tenga Rosetta (si no, la F de la rodaja x86_64 sale NO MEDIDA)
+  y que Homebrew siga teniendo bottle de ffmpeg para arm64.
+- **Workflows.** `verificar-fuente` llamado desde `build` con el artefacto `release` de la misma
+  ejecución; que sus controles negativos salgan verdes por su motivo exacto (snappy en las tres
+  extracciones, gcc en crosstool-ng) y rojos si el fallo es otro (para verlo: una vez con el paquete
+  completo y otra quitando otra pieza); el campo `immutable` de la API de releases; la descarga de lo
+  publicado contra `SHA256SUMS`.
+- **Avisos.** Que cada ruta nueva de `notices/*/pieza.conf` exista en su versión (si no, `avisos.mjs
+  textos` sale en rojo) y que ScanCode reconozca en los textos las licencias que detecta en el fuente
+  (IJG, ISC...); el escaneo de libgcc, libstdc++, el CRT y winpthreads.
+- **Instalador.** Que `Nsis7z_19.00.7z` traiga el fuente (el workflow falla si no) y que la etiqueta 1.14
+  de StdUtils sea el fuente de la DLL 1.1.4.0 de electron-builder (los binarios no son reproducibles).
 
 ## Reconstruir desde el paquete de fuente
 

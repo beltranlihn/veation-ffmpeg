@@ -1,4 +1,4 @@
 {
  "_estado": "PENDIENTE",
- "_nota": "Base revisada de ScanCode (tools/scancode.sh). Se rellena con el scancode-resumen.json de la primera ejecucion, tras revisarlo pieza por pieza, y se quita _estado. Mientras siga PENDIENTE, una release no sale (--estricto)."
+ "_nota": "Base revisada de ScanCode (tools/scancode.sh). Formato: { \"piezas\": { \"<pieza>\": { \"<expresion SPDX>\": \"textos\" | \"<justificacion escrita>\" } } }. \"textos\" exige que todas las licencias de la expresion aparezcan en los textos que publica FFMPEG-NOTICES.txt para esa pieza; si no, hace falta una justificacion (por ejemplo, solo en tests/, no se compila). Se rellena con scancode-propuesta.json de la primera ejecucion, tras revisarla pieza por pieza, y se quita _estado. Mientras siga PENDIENTE, una release no sale (--estricto)."
 }

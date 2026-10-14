@@ -7,8 +7,10 @@
 #   ni LDFLAGS del entorno: asi -buildconf es toda la verdad de como se compilo;
 # - el configure de 8.1.3 sigue pidiendo «-lsnappy -lstdc++» (linea 7381) y en macOS no hay libstdc++:
 #   en vez de parchear FFmpeg, /tmp/vf/shim/libstdc++.tbd apunta al libc++.tbd del SDK y va en
-#   --extra-ldflags (-L/tmp/vf/shim). El arbol de FFmpeg queda SIN MODIFICAR. Si el shim no sirviera,
-#   el plan B es patches/reserva/ffmpeg-0001-snappy-libcxx.patch (patches/MODIFICACIONES.md);
+#   --extra-ldflags (-L/tmp/vf/shim). El arbol de FFmpeg queda SIN MODIFICAR. Es el unico -lstdc++ que
+#   llega: zimg.pc lleva -lc++ (mac/deps/45-zimg.sh, STL_LIBS) y x265.pc el -lc++ de su compilador. Si
+#   el shim no sirviera, el plan B es patches/reserva/ffmpeg-0001-snappy-libcxx.patch
+#   (patches/MODIFICACIONES.md);
 # - tras compilar se REENLAZAN ffmpeg_g y ffprobe_g con -Wl,-t (traza del enlazador); el binario que
 #   se publica es el de ese reenlazado;
 # - strip, dsymutil (simbolos en ffmpeg_g.dSYM) y, como ULTIMO paso que toca los binarios, firma ad hoc.
@@ -61,8 +63,22 @@ if ! env -u CFLAGS -u CXXFLAGS -u LDFLAGS make V=1 LDEXEFLAGS="$LDEXE -Wl,-t" ff
     tail -n 200 "$SALIDA/enlazado.log" >&2
     vf_die "el reenlazado con traza fallo"
 fi
-if grep -q 'built for newer macOS version' "$SALIDA/enlazado.log"; then
-    grep 'built for newer macOS version' "$SALIDA/enlazado.log" >&2
+# Objetos compilados para un macOS mas nuevo que el minimo. El enlazador de Xcode 15 y posteriores
+# (ld-prime) escribe «was built for newer 'macOS' version (14.0) than being linked (13.0)», con
+# comillas; el ld64 antiguo, sin ellas. El patron acepta las dos formas, y antes de fiarse de el se
+# comprueba que caza el aviso de verdad: un objeto compilado para 14.0 enlazado con minimo 13.0.
+AVISO_MINOS="built for newer '?macOS'? version"
+cen="$(mktemp -d)"
+printf 'int main(void) { return 0; }\n' > "$cen/c.c"
+env -u CFLAGS -u LDFLAGS -u MACOSX_DEPLOYMENT_TARGET clang -mmacosx-version-min=14.0 -c "$cen/c.c" -o "$cen/c.o"
+env -u CFLAGS -u LDFLAGS -u MACOSX_DEPLOYMENT_TARGET clang -mmacosx-version-min=13.0 "$cen/c.o" -o "$cen/c" > "$cen/ld.log" 2>&1 || true
+if ! grep -Eq "$AVISO_MINOS" "$cen/ld.log"; then
+    cat "$cen/ld.log" >&2
+    vf_die "el centinela de minos no caza el aviso real del enlazador: revisar el patron «$AVISO_MINOS»"
+fi
+rm -rf "$cen"
+if grep -Eq "$AVISO_MINOS" "$SALIDA/enlazado.log"; then
+    grep -E "$AVISO_MINOS" "$SALIDA/enlazado.log" >&2
     vf_die "hay objetos compilados para un macOS mas nuevo que $MACOS_MIN"
 fi
 env -u CFLAGS -u CXXFLAGS -u LDFLAGS make V=1 ffmpeg ffprobe

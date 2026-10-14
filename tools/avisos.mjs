@@ -10,9 +10,17 @@
 //       --estricto (release): falla si queda algun PENDIENTE o un texto ya revisado cambio.
 //
 //   node tools/avisos.mjs notices --avisos <out/avisos> --manifiestos <dir> --fuente <tar.xz o .part00>
-//        --salida <out/release>
+//        --salida <out/release> [--enlazado <dir con linked-*.txt>]
 //       FFMPEG-NOTICES.txt (cabecera con la build, el sha256 de cada binario y del fuente; una ficha por
-//       componente enlazado; los textos LITERALES) y SOURCE.txt.
+//       componente enlazado; los textos LITERALES) y SOURCE.txt. Con --enlazado, falla si la traza del
+//       enlazador (tools/enlazado.mjs) atribuye algo a una pieza que no tiene ficha aqui.
+//
+// Modos de extraccion de un texto (notices/<pieza>/pieza.conf, «ruta#modo»):
+//   (ninguno)   el archivo entero
+//   #cabecera   el primer comentario del archivo: «/* ... */» o, en ensamblador, el bloque inicial de
+//               lineas que empiezan por «;» (x86inc.asm)
+//   #licencia   el primer comentario («/* */» o bloque de «;») que contiene «Permission» o
+//               «Redistribution»: para archivos cuyo primer comentario no es la licencia (timsort.h)
 //
 //   node tools/avisos.mjs manifiesto --release <out/release> --manifiestos <dir> --notas <out/NOTAS.md>
 //       manifest.json (lo que fija VEATION en vendor/ffmpeg/ffmpeg.lock.json), SHA256SUMS y las notas.
@@ -49,6 +57,25 @@ function revisado(p) {
 // Piezas con avisos: las enlazadas (rol fuente) y el runtime del toolchain (mingw-w64, gcc).
 const piezasConAvisos = () => [...lock.values()].filter(f => (f.claves.rol === 'fuente' || ['mingw-w64', 'gcc'].includes(f.pieza)) && confPieza(f.pieza)).map(f => f.pieza);
 
+// Comentarios de un archivo de fuente, en orden: «/* ... */» y bloques de lineas seguidas que empiezan
+// por «;» (ensamblador NASM). Devuelve [{ inicio, texto }].
+function comentarios(texto) {
+  const res = [];
+  for (const m of texto.matchAll(/\/\*[\s\S]*?\*\//g)) res.push({ inicio: m.index, texto: m[0] });
+  for (const m of texto.matchAll(/(?:^|\n)((?:[ \t]*;[^\n]*(?:\n|$))+)/g)) res.push({ inicio: m.index + (m[0].startsWith('\n') ? 1 : 0), texto: m[1].replace(/\n$/, '') });
+  return res.sort((a, b) => a.inicio - b.inicio);
+}
+function extraer(texto, modo) {
+  if (!modo) return texto;
+  const cs = comentarios(texto);
+  const c = modo === 'cabecera' ? cs[0] : modo === 'licencia' ? cs.find(x => /Permission|Redistribution/.test(x.texto)) : undefined;
+  if (modo !== 'cabecera' && modo !== 'licencia') throw new Error(`modo desconocido «#${modo}»`);
+  return c ? c.texto + '\n' : null;
+}
+const etiquetaModo = { cabecera: ' (header comment)', licencia: ' (license comment)' };
+// {ref:<pieza>} en un campo de pieza.conf -> la ref de esa pieza en el lock
+const conRefs = (s) => (s || '').replace(/\{ref:([^}]+)\}/g, (_, p) => { const f = lock.get(p); if (!f) morir(`{ref:${p}}: la pieza no esta en el lock`); return f.ref; });
+
 if (fase === 'textos') {
   const fuentes = arg('--fuentes'), salida = arg('--salida'), estricto = resto.includes('--estricto');
   if (!fuentes || !salida) morir('uso: textos --fuentes d --salida d [--estricto]');
@@ -68,8 +95,10 @@ if (fase === 'textos') {
     lineasRevision.push(`== notices/${p}/REVISADO (${fila[1]})`);
     for (const t of conf.textos) {
       const [ruta, modo] = t.split('#');
-      let texto = fs.readFileSync(path.join(tmp, ruta), 'utf8');
-      if (modo === 'cabecera') { const m = /\/\*[\s\S]*?\*\//.exec(texto); if (!m) { problemas.push(`${p}: ${ruta} no tiene comentario de cabecera`); continue; } texto = m[0] + '\n'; }
+      let texto;
+      try { texto = extraer(fs.readFileSync(path.join(tmp, ruta), 'utf8'), modo); }
+      catch (e) { problemas.push(`${p}: ${t}: ${e.message}`); continue; }
+      if (texto === null) { problemas.push(`${p}: ${ruta} no tiene el comentario que pide #${modo}`); continue; }
       const destino = path.join(salida, 'licencias', p, ruta.replace(/\//g, '__') + (modo ? '.' + modo : ''));
       fs.mkdirSync(path.dirname(destino), { recursive: true }); fs.writeFileSync(destino, texto);
       const s = sha256Texto(texto);
@@ -101,8 +130,24 @@ const partesFuente = (f) => {
 
 if (fase === 'notices') {
   const avisos = arg('--avisos'), dirM = arg('--manifiestos'), fuente = arg('--fuente'), salida = arg('--salida');
-  if (!avisos || !dirM || !fuente || !salida) morir('uso: notices --avisos d --manifiestos d --fuente f --salida d');
+  if (!avisos || !dirM || !fuente || !salida) morir('uso: notices --avisos d --manifiestos d --fuente f --salida d [--enlazado d]');
   const M = leerManifiestos(dirM);
+  // Lo que el enlazador abrio de verdad (linked-*.txt de tools/enlazado.mjs: tipo, pieza, ruta) tiene que
+  // ser de piezas con ficha: un .a de una pieza sin aviso (o un runtime sin atribuir) para la release.
+  const dirEnl = arg('--enlazado');
+  if (dirEnl) {
+    const con = new Set(piezasConAvisos()), sin = new Set();
+    for (const f of ['linked-win.txt', 'linked-mac-arm64.txt', 'linked-mac-x86_64.txt']) {
+      const ruta = path.join(dirEnl, f);
+      if (!fs.existsSync(ruta)) morir(`falta ${ruta}: sin la traza del enlazador no se puede cruzar con los avisos`);
+      for (const l of fs.readFileSync(ruta, 'utf8').split(/\r?\n/)) {
+        const [tipo, pieza] = l.split('\t');
+        if (tipo === 'RUNTIME-SIN-AVISO') sin.add(`${l.split('\t')[2]} (${f}, runtime sin ficha)`);
+        else if (pieza && !con.has(pieza)) sin.add(`${pieza} (${f})`);
+      }
+    }
+    if (sin.size) morir('enlazado sin ficha en FFMPEG-NOTICES.txt: ' + [...sin].join(' '));
+  }
   const { base, partes, dir } = partesFuente(fuente);
   const shaFuente = partes.length === 1 ? sha256(path.join(dir, partes[0])) : null;
   // Si va partido, el sha256 de cada parte (y el del archivo entero, que comprueba verificar-fuente).
@@ -115,6 +160,9 @@ if (fase === 'notices') {
   L.push('This file accompanies the FFmpeg program built by Alma Digital Studio for VEATION. FFmpeg is a');
   L.push('separate program, run by VEATION as an external process. FFmpeg is not owned by Alma Digital');
   L.push('Studio; FFmpeg is a trademark of Fabrice Bellard, originator of the FFmpeg project.', '');
+  // IJG: libavcodec/jfdctfst.c, jfdctint_template.c y jrevdct.c (dnxhd y mjpeg los compilan) vienen de
+  // libjpeg, cuya licencia pide esta frase en la documentacion que acompana a un ejecutable.
+  L.push('This software is based in part on the work of the Independent JPEG Group.', '');
   L.push(`Build:    FFmpeg ${VERSION}, built from the unmodified upstream FFmpeg ${lock.get('ffmpeg').ref} release`);
   L.push(`          (${lock.get('ffmpeg').origen}), the same version on Windows and macOS.`);
   L.push(`Windows:  ffmpeg.exe   SHA-256 ${W['ffmpeg.exe']}`, `          ffprobe.exe  SHA-256 ${W['ffprobe.exe']}`);
@@ -127,6 +175,7 @@ if (fase === 'notices') {
     const f = lock.get(p), c = confPieza(p);
     const sis = f.sistemas.map(s => s === 'win' ? 'Windows' : 'macOS').join(' and ');
     L.push(`${String(i + 1).padStart(2)}. ${c.nombre} ${f.ref}`, `    Source:   ${f.origen}${f.claves.commit && f.claves.commit !== 'PENDIENTE' && f.tipo === 'git' ? ' @ ' + f.claves.commit : ''}`, `    License:  ${c.licencia}`, `    Used on:  ${sis}`);
+    if (c.nota) L.push(`    Note:     ${conRefs(c.nota)}`);
   });
   L.push('', 'On macOS the build also uses the system zlib, bzip2 and iconv, and Apple VideoToolbox and', 'AudioToolbox (system libraries, not distributed with VEATION).', '');
   L.push('Full license texts and notices', '------------------------------', '');
@@ -136,14 +185,17 @@ if (fase === 'notices') {
       const [ruta, modo] = t.split('#');
       const f = path.join(avisos, 'licencias', p, ruta.replace(/\//g, '__') + (modo ? '.' + modo : ''));
       if (!fs.existsSync(f)) morir(`falta el texto ${f}: ejecutar antes «avisos.mjs textos»`);
-      L.push(`======== ${c.nombre}: ${ruta}${modo ? ' (header comment)' : ''} ========`, '', fs.readFileSync(f, 'utf8').replace(/\r\n/g, '\n').trimEnd(), '');
+      L.push(`======== ${c.nombre}: ${ruta}${modo ? etiquetaModo[modo] : ''} ========`, '', fs.readFileSync(f, 'utf8').replace(/\r\n/g, '\n').trimEnd(), '');
     }
   }
   fs.mkdirSync(salida, { recursive: true });
   fs.writeFileSync(path.join(salida, 'FFMPEG-NOTICES.txt'), L.join('\n') + '\n');
+  // SOURCE.txt viaja en los zips de la release (con COPYING.GPLv3 al lado) y, solo, en resources/ffmpeg/
+  // de VEATION (donde la licencia esta en licenses/FFmpeg-GPLv3.txt): el texto vale en los dos sitios.
   fs.writeFileSync(path.join(salida, 'SOURCE.txt'), [
-    `FFmpeg ${VERSION} is licensed under the GNU General Public License, version 3 or later`,
-    '(see COPYING.GPLv3 next to this file). Built by Alma Digital Studio.',
+    `FFmpeg ${VERSION} is licensed under the GNU General Public License, version 3 or later.`,
+    'Full text: COPYING.GPLv3 in the veation-ffmpeg release packages, licenses/FFmpeg-GPLv3.txt',
+    'inside VEATION, and FFMPEG-NOTICES.txt. Built by Alma Digital Studio.',
     'Complete corresponding source code (FFmpeg, every linked library, build scripts, patches):',
     URL_RELEASE, ...lineasFuente.map(l => l.trim())].join('\n') + '\n');
   console.log(`avisos notices: FFMPEG-NOTICES.txt (${lista.length} componentes) y SOURCE.txt en ${salida}`);

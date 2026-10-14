@@ -3,3 +3,4 @@
 # y, con --estricto (release), falla mientras quede alguno PENDIENTE o un texto cambie.
 LICENSE PENDIENTE
 PATENTS PENDIENTE
+third_party/x86inc/LICENSE PENDIENTE

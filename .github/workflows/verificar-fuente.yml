@@ -1,24 +1,49 @@
-# verificar-fuente.yml - el paquete de fuente de una release RECONSTRUYE sus binarios, y le falta algo
-# -> la reconstruccion FALLA (FFMPEG-PROPIO.md, 2.5.6).
+# verificar-fuente.yml - el paquete de fuente RECONSTRUYE los binarios, y si le falta algo la
+# reconstruccion FALLA, y por eso (FFMPEG-PROPIO.md, 2.5.6).
 #
-#   1. baja SOLO el paquete de fuente de la release (y SHA256SUMS/SOURCE.txt para verificarlo);
+#   1. toma SOLO el paquete de fuente (y SHA256SUMS/SOURCE.txt para verificarlo);
 #   2. reconstruye desde el: el Mac sin red (sandbox-exec, tras instalar las herramientas fijadas);
-#      Windows con las etapas de bibliotecas y la de FFmpeg sin red y la toolchain desde toolchain-win/;
-#   3. compara -version, -buildconf, -encoders y -decoders con el BUILDINFO de la release;
-#   4. control negativo: sin el archivo de snappy, la reconstruccion tiene que fallar, y por eso.
-# Se lanza al publicar una release v*, a mano, y una vez al mes (el control negativo y la recomprobacion
-# de lo congelado). OJO: GitHub desactiva los «schedule» tras 60 dias sin actividad en el repositorio.
+#      Windows con crosstool-ng, la toolchain, las bibliotecas y FFmpeg sin red, desde toolchain-win/ y
+#      bibliotecas/ del paquete;
+#   3. compara -version, -buildconf, -encoders y -decoders con el BUILDINFO del paquete;
+#   4. controles negativos: sin el archivo de snappy, la reconstruccion falla en la extraccion de snappy
+#      (Windows, Mac y la comprobacion de fuentes); sin el tarball de gcc, crosstool-ng falla por gcc
+#      (prueba que la toolchain sale del paquete y no de la red).
+#
+# Cuando se lanza:
+#   - desde build.yml (workflow_call), ANTES de publicar, con el artefacto «release» de esa ejecucion:
+#     es la verificacion que decide si la release sale (una release es inmutable: un paquete incompleto
+#     ya no tendria arreglo). No se usa «on: release»: una release publicada con el GITHUB_TOKEN no
+#     dispara workflows, asi que ese evento no llegaba nunca;
+#   - a mano (workflow_dispatch) y una vez al mes (schedule), sobre la ultima release v* publicada (o la
+#     etiqueta indicada), con la recomprobacion de lo congelado. OJO: GitHub desactiva los «schedule»
+#     tras 60 dias sin actividad en el repositorio.
 name: verificar-fuente
 
 on:
-  release:
-    types: [published]
   schedule:
     - cron: '17 5 3 * *'
+  # Los dos disparadores declaran las mismas entradas para que «inputs.tag» e «inputs.artefacto» existan
+  # siempre; a mano, «artefacto» se deja vacio (solo tiene sentido dentro de una ejecucion de build.yml).
   workflow_dispatch:
     inputs:
       tag:
         description: 'Etiqueta (vacio = la ultima release v*)'
+        required: false
+        default: ''
+      artefacto:
+        description: 'Dejar vacio (lo usa build.yml)'
+        required: false
+        default: ''
+  workflow_call:
+    inputs:
+      artefacto:
+        description: 'Artefacto de ESTA ejecucion con los assets de la release (build.yml: «release», con release/ dentro)'
+        type: string
+        required: true
+      tag:
+        description: 'No se usa cuando hay artefacto'
+        type: string
         required: false
         default: ''
 
@@ -27,7 +52,6 @@ permissions:
 
 jobs:
   elegir:
-    if: github.event_name != 'release' || startsWith(github.event.release.tag_name, 'v')
     runs-on: ubuntu-24.04
     outputs:
       tag: ${{ steps.t.outputs.tag }}
@@ -36,8 +60,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          ENTRADA: ${{ inputs.tag || github.event.release.tag_name || '' }}
+          ENTRADA: ${{ inputs.tag || '' }}
+          ARTEFACTO: ${{ inputs.artefacto || '' }}
         run: |
+          if [ -n "$ARTEFACTO" ]; then
+            echo "tag=" >> "$GITHUB_OUTPUT"
+            echo "Paquete: artefacto «$ARTEFACTO» de esta ejecucion (antes de publicar)" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           tag="$ENTRADA"
           [ -n "$tag" ] || tag="$(gh release list --limit 50 --json tagName --jq '[.[] | select(.tagName | startswith("v"))][0].tagName')"
           [ -n "$tag" ] || { echo "no hay ninguna release v*"; exit 1; }
@@ -45,7 +75,7 @@ jobs:
 
   recomprobar-lock:
     # Lo ya congelado sigue siendo cierto hoy (ninguna etiqueta movida, ningun tarball resubido).
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && !inputs.artefacto
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -67,16 +97,24 @@ jobs:
     env:
       A: ${{ matrix.arch }}
       GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.elegir.outputs.tag }}
+      ARTEFACTO: ${{ inputs.artefacto || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           sparse-checkout: tools
-      - name: Bajar y verificar el paquete de fuente
-        run: tools/paquete-bajar.sh "${{ needs.elegir.outputs.tag }}" v
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: inputs.artefacto
+        with:
+          name: ${{ inputs.artefacto }}
+          path: art
+      - name: Tomar y verificar el paquete de fuente
+        run: if [ -n "$ARTEFACTO" ]; then tools/paquete-bajar.sh --local art/release v; else tools/paquete-bajar.sh "$TAG" v; fi
       - name: Herramientas fijadas (con red, ANTES del aislamiento)
         working-directory: v/paquete/receta
         run: |
           sudo xcode-select -s "$(tools/lock.sh get xcode origen)"
+          tools/fuentes-comprobar.sh .. mac
           mac/herramientas.sh
       - name: Reconstruir SIN RED desde el paquete
         working-directory: v/paquete/receta
@@ -95,20 +133,28 @@ jobs:
     timeout-minutes: 350
     env:
       GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.elegir.outputs.tag }}
+      ARTEFACTO: ${{ inputs.artefacto || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           sparse-checkout: tools
-      - name: Bajar y verificar el paquete de fuente
-        run: tools/paquete-bajar.sh "${{ needs.elegir.outputs.tag }}" v
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: inputs.artefacto
+        with:
+          name: ${{ inputs.artefacto }}
+          path: art
+      - name: Tomar y verificar el paquete de fuente
+        run: if [ -n "$ARTEFACTO" ]; then tools/paquete-bajar.sh --local art/release v; else tools/paquete-bajar.sh "$TAG" v; fi
       - run: v/paquete/receta/win/util/free_disk_space.sh
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      - name: Reconstruir desde el paquete (en frio, sin cache)
+      - name: Reconstruir desde el paquete (en frio, sin cache; toolchain incluida, sin red)
         working-directory: v/paquete/receta
         env:
           VF_CACHE: none
         run: |
           export VF_FUENTES="$(cd .. && pwd)"
+          tools/fuentes-comprobar.sh "$VF_FUENTES" win
           win/makeimage.sh win64 gpl 8.1
           VF_SALIDA="$PWD/../../salida" win/build.sh win64 gpl 8.1
       - name: Igual que la release
@@ -119,33 +165,79 @@ jobs:
             -v "$PWD":/w -v "$PWD/../../salida":/d -w /w "$IMG" bash tools/info-binario.sh /d/ffmpeg.exe /d/info --ejecutor wine
           tools/comparar-buildinfo.sh ../build/BUILDINFO-win.txt ../../salida/info
 
+  # Cada control comprueba la CONCLUSION (por que falla), no solo que falla: el mensaje exacto de la
+  # pieza que falta. Un fallo por otra causa (una herramienta que no esta, una red caida) sale en rojo.
   control-negativo:
     needs: elegir
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
       GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.elegir.outputs.tag }}
+      ARTEFACTO: ${{ inputs.artefacto || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           sparse-checkout: tools
-      - run: tools/paquete-bajar.sh "${{ needs.elegir.outputs.tag }}" v
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: inputs.artefacto
+        with:
+          name: ${{ inputs.artefacto }}
+          path: art
+      - run: if [ -n "$ARTEFACTO" ]; then tools/paquete-bajar.sh --local art/release v; else tools/paquete-bajar.sh "$TAG" v; fi
       - name: Quitar snappy del paquete
         run: rm -v v/paquete/bibliotecas/snappy-*
       - name: La comprobacion de fuentes tiene que fallar, y por snappy
         working-directory: v/paquete/receta
         run: |
           if tools/fuentes-comprobar.sh .. 2> err.txt; then echo "ROJO: no detecto que falta snappy"; exit 1; fi
-          grep -q snappy err.txt && echo "OK: falla porque falta snappy"
+          grep -qF '«snappy»: falta bibliotecas/snappy-' err.txt || { echo "ROJO: fallo, pero no porque falte snappy:"; cat err.txt; exit 1; }
+          echo "OK: falla porque falta snappy"
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      - name: La descarga de Windows (sin red) tiene que fallar, y por snappy
+      - name: La extraccion de Windows (sin red) tiene que fallar, y por snappy
         working-directory: v/paquete/receta
         env:
           VF_CACHE: none
         run: |
           export VF_FUENTES="$(cd .. && pwd)"
           if win/makeimage.sh win64 gpl 8.1 > log.txt 2>&1; then echo "ROJO: la reconstruccion siguio sin snappy"; exit 1; fi
-          grep -q 'vf_extraer: .*snappy' log.txt && echo "OK: falla en la extraccion de snappy" || { tail -40 log.txt; exit 1; }
+          grep -qF 'vf_extraer: falta /fuentes/bibliotecas/snappy-' log.txt || { echo "ROJO: fallo, pero no en la extraccion de snappy:"; tail -60 log.txt; exit 1; }
+          echo "OK: falla en la extraccion de snappy"
+
+  control-negativo-toolchain:
+    # Sin el tarball de GCC en toolchain-win/, crosstool-ng (sin red y con CT_FORBID_DOWNLOAD) tiene que
+    # fallar al buscarlo: asi se ve que la toolchain sale del paquete y no de internet.
+    needs: elegir
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.elegir.outputs.tag }}
+      ARTEFACTO: ${{ inputs.artefacto || '' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: tools
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: inputs.artefacto
+        with:
+          name: ${{ inputs.artefacto }}
+          path: art
+      - run: if [ -n "$ARTEFACTO" ]; then tools/paquete-bajar.sh --local art/release v; else tools/paquete-bajar.sh "$TAG" v; fi
+      - run: v/paquete/receta/win/util/free_disk_space.sh
+      - name: Quitar gcc del paquete
+        working-directory: v/paquete/receta
+        run: rm -v "../$(tools/lock.sh archivo gcc)"
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: crosstool-ng tiene que fallar, y por gcc
+        working-directory: v/paquete/receta
+        env:
+          VF_CACHE: none
+        run: |
+          export VF_FUENTES="$(cd .. && pwd)"
+          if win/makeimage.sh win64 gpl 8.1 > log.txt 2>&1; then echo "ROJO: la toolchain se compilo sin el tarball de gcc"; exit 1; fi
+          grep -qF 'gcc: download failed' log.txt || { echo "ROJO: fallo, pero no porque crosstool-ng no encontrase gcc:"; tail -80 log.txt; exit 1; }
+          echo "OK: crosstool-ng no encuentra gcc fuera del paquete"
 
   control-negativo-mac:
     needs: elegir
@@ -153,15 +245,25 @@ jobs:
     timeout-minutes: 20
     env:
       GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.elegir.outputs.tag }}
+      ARTEFACTO: ${{ inputs.artefacto || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           sparse-checkout: tools
-      - run: tools/paquete-bajar.sh "${{ needs.elegir.outputs.tag }}" v
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: inputs.artefacto
+        with:
+          name: ${{ inputs.artefacto }}
+          path: art
+      - run: if [ -n "$ARTEFACTO" ]; then tools/paquete-bajar.sh --local art/release v; else tools/paquete-bajar.sh "$TAG" v; fi
       - run: rm -v v/paquete/bibliotecas/snappy-*
       - name: La reconstruccion del Mac tiene que fallar, y por snappy
         working-directory: v/paquete/receta
         run: |
           sudo xcode-select -s "$(tools/lock.sh get xcode origen)"
           if mac/deps.sh --fuentes .. --solo snappy 2> err.txt; then echo "ROJO: compilo sin el fuente de snappy"; exit 1; fi
-          grep -q snappy err.txt && echo "OK: falla porque falta snappy"
+          # deps.sh escribe «=== snappy (...)» ANTES de extraer: buscar «snappy» a secas aprobaria
+          # cualquier fallo. Lo que se exige es el mensaje de vf_extraer por el archivo que falta.
+          grep -qF '«snappy»: falta el archivo' err.txt || { echo "ROJO: fallo, pero no porque falte el fuente de snappy:"; cat err.txt; exit 1; }
+          echo "OK: falla porque falta el fuente de snappy"

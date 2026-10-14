@@ -11,7 +11,10 @@
 #   2. DEPS de Chromium en la etiqueta <chromium> (gitiles, ?format=TEXT): ffmpeg_revision;
 #   3. chromium/third_party/ffmpeg en esa revision (comprobada con rev-parse);
 #   4. de Electron: patches/ffmpeg/ (link_with_loader_path.patch), patches/config.json,
-#      build/args/{all,release,ffmpeg}.gn (ffmpeg_branding = "Chrome", proprietary_codecs = true), LICENSE;
+#      build/args/{all,release,ffmpeg}.gn, LICENSE. La biblioteca que viaja DENTRO de Electron sale de
+#      release.gn (is_component_ffmpeg = true) + all.gn (ffmpeg_branding = "Chrome",
+#      proprietary_codecs = true); ffmpeg.gn es la variante «Chromium» sin codecs propietarios del zip
+#      ffmpeg-*.zip que Electron publica aparte (se guarda solo como referencia);
 #   5. un tar determinista con todo + README.txt, su SHA256SUMS y electron-ffmpeg.json.
 . "$(dirname "$0")/lib.sh"
 
@@ -55,6 +58,8 @@ for x in patches/ffmpeg patches/config.json build/args/all.gn build/args/release
 done
 [ -f "$P/electron/patches/ffmpeg/link_with_loader_path.patch" ] || vf_log "AVISO: Electron v$E no trae patches/ffmpeg/link_with_loader_path.patch"
 grep -q 'ffmpeg_branding = "Chrome"' "$P/electron/build/args/all.gn" || vf_log "AVISO: build/args/all.gn no fija ffmpeg_branding = \"Chrome\""
+grep -q 'is_component_ffmpeg = true' "$P/electron/build/args/release.gn" || vf_die "build/args/release.gn ya no pone is_component_ffmpeg = true: revisar el README del paquete"
+grep -q 'import("//electron/build/args/all.gn")' "$P/electron/build/args/release.gn" || vf_die "build/args/release.gn ya no importa all.gn: revisar el README del paquete"
 EPOCH="$(git -C "$TMP/el" log -1 --format=%ct)"
 
 cat > "$P/README.txt" <<EOF
@@ -63,9 +68,12 @@ ffmpeg.dll (Windows) and libffmpeg.dylib inside Electron Framework.framework (ma
 
 Built by the Electron project from https://chromium.googlesource.com/chromium/third_party/ffmpeg
 at revision $rev (chromium-third_party-ffmpeg/), with the patches Electron applies to it
-(electron/patches/ffmpeg/, applied as listed in electron/patches/config.json) and the GN arguments
-of electron/build/args/ (all.gn, release.gn, ffmpeg.gn: ffmpeg_branding = "Chrome",
-proprietary_codecs = true). Not modified by Alma Digital Studio.
+(electron/patches/ffmpeg/, applied as listed in electron/patches/config.json). The library inside
+Electron is built with the GN arguments of electron/build/args/release.gn, which imports all.gn
+(ffmpeg_branding = "Chrome", proprietary_codecs = true) and sets is_component_ffmpeg = true.
+electron/build/args/ffmpeg.gn (ffmpeg_branding = "Chromium", proprietary_codecs = false) is the
+variant of the separate ffmpeg zip that Electron publishes, which is not the one distributed with
+VEATION; it is included for reference. Not modified by Alma Digital Studio.
 
 License: GNU Lesser General Public License, version 2.1 or later (see the license files in
 chromium-third_party-ffmpeg/). The library is loaded dynamically; you may replace it with a

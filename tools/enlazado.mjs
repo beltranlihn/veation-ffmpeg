@@ -12,7 +12,15 @@
 // Cualquier otra cosa (Homebrew, /usr/local, una biblioteca sin fila) pone la puerta en ROJO.
 // Ademas exige que se hayan abierto TODAS las bibliotecas del sistema en [enlazado] que tienen fila en el
 // lock para ese sistema: una pieza del lock que no se enlaza es una pieza que sobra (o una que falta).
+//
+// En Windows, lo que viene del runtime (/opt/ct-ng) tambien se atribuye a una pieza con aviso
+// (piezas.conf, [enlazado-runtime-win]): las bibliotecas de GCC admitidas -> gcc; las de GCC sin ficha
+// (libgomp, libquadmath, libatomic...) y cualquier otra de lib/gcc/ -> ROJO (L4); el resto (CRT,
+// winpthreads, bibliotecas de importacion) -> mingw-w64. La columna «pieza» de linked-win.txt lo
+// recoge, y «avisos.mjs notices --enlazado» falla si una pieza enlazada no tiene ficha en
+// FFMPEG-NOTICES.txt.
 import fs from 'node:fs';
+import path from 'node:path';
 import { leerLock, leerPiezas, informe } from './comun.mjs';
 
 const arg = (k) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : null; };
@@ -23,6 +31,9 @@ const lock = leerLock(); const piezas = leerPiezas();
 const mapa = new Map(piezas.pares('enlazado').map(([a, p]) => [a, p]));
 const rutas = piezas.pares(`enlazado-rutas-${sistema}`).map(([tipo, prefijo]) => ({ tipo, prefijo }));
 const r = informe(`Enlazado real ${sistema}`);
+const runtimeDe = (clave) => new Set((piezas.pares('enlazado-runtime-win').find(([k]) => k === clave) || []).slice(1));
+const runtimeGcc = runtimeDe('gcc'), runtimeProhibido = runtimeDe('prohibido');
+if (sistema === 'win' && (!runtimeGcc.size || !runtimeProhibido.size)) { console.error('piezas.conf: falta [enlazado-runtime-win] (gcc y prohibido)'); process.exit(2); }
 
 // Extrae rutas de archivo de cada linea de la traza: «/ruta/lib.a(miembro.o)», «(/ruta/lib.a)miembro.o»,
 // «/ruta/objeto.o», «libavcodec/libavcodec.a», «/ruta/libSystem.tbd», «-lfoo (/ruta/libfoo.a)».
@@ -38,6 +49,17 @@ for (const f of [...archivos].sort()) {
   const ruta = rutas.find(x => f.startsWith(x.prefijo));
   let tipo = ruta ? ruta.tipo : (f.startsWith('/') ? 'FUERA' : 'compilacion');
   let pieza = '';
+  if (tipo === 'runtime' && sistema === 'win') {
+    const base = f.split('/').pop();
+    if (runtimeGcc.has(base)) pieza = 'gcc';
+    else if (runtimeProhibido.has(base)) tipo = 'RUNTIME-SIN-AVISO';
+    // lib/gcc/<target>/<version>/ es el directorio propio de GCC (libgcc, crtbegin.o...): lo que salga
+    // de ahi y no este en la lista de gcc es una biblioteca de GCC que nadie ha revisado, no de mingw-w64.
+    // La ruta se normaliza: GNU ld escribe el CRT de mingw-w64 como «.../lib/gcc/<t>/<v>/../../../../
+    // x86_64-w64-mingw32/lib/../lib/crt2.o», que NO es de ese directorio.
+    else if (path.posix.normalize(f).includes('/lib/gcc/')) tipo = 'RUNTIME-SIN-AVISO';
+    else pieza = 'mingw-w64';
+  }
   if (tipo === 'prefijo') {
     const base = f.split('/').pop();
     if (/\.o(bj)?$/.test(base)) { tipo = 'FUERA'; }
@@ -62,12 +84,18 @@ const noUsadas = esperadas.filter(p => !usadas.has(p));
 r.si(noUsadas.length === 0, 'L2', `se enlazan todas las bibliotecas propias del lock (${esperadas.length})`, 'no se abrieron: ' + noUsadas.join(' '));
 const runtime = filas.filter(([t]) => t === 'runtime').map(([, , f]) => f.split('/').pop());
 if (sistema === 'win') {
-  // Lo que se enlace del runtime tiene que constar en FFMPEG-NOTICES.txt (avisos.mjs lo cruza con esto).
+  // Lo esperado del runtime tiene que estar (si faltara, la traza no es la que se cree).
   for (const [nombre, re] of [['libstdc++', /^libstdc\+\+\.a$/], ['libgcc', /^libgcc(_eh)?\.a$/], ['winpthreads', /^lib(win)?pthread\.a$/], ['CRT de mingw-w64', /^libmingwex\.a$/]]) {
     r.si(runtime.some(x => re.test(x)), 'L3', `runtime del toolchain enlazado: ${nombre}`);
   }
+  // Y lo que hay tiene que tener aviso: una biblioteca de GCC sin ficha (libgomp, libquadmath...) es ROJO.
+  const sinAviso = filas.filter(([t]) => t === 'RUNTIME-SIN-AVISO').map(([, , f]) => f);
+  r.si(sinAviso.length === 0, 'L4', 'todo lo enlazado del runtime es de gcc (libgcc, libstdc++) o de mingw-w64, con su aviso', 'sin aviso: ' + sinAviso.join(' '));
 } else {
-  // ld puede escribir la ruta del enlace simbolico o la del libc++.tbd del SDK al que apunta.
-  r.si(filas.some(([t]) => t === 'shim') || runtime.includes('libc++.tbd'), 'L3', 'snappy pide -lstdc++ y se resuelve con libc++ del sistema (shim)');
+  // En macOS no hay libstdc++: lo que se enlaza de C++ es el libc++ del sistema (ld puede escribir la ruta
+  // del shim o la del libc++.tbd del SDK al que apunta). Esto NO demuestra que el shim haga falta ni que
+  // funcione (libc++.tbd ya entra por el -lc++ de x265.pc y de zimg.pc): eso lo demuestra configure,
+  // que falla si «-lsnappy -lstdc++» no enlaza.
+  r.si(filas.some(([t]) => t === 'shim') || runtime.includes('libc++.tbd'), 'L3', 'el runtime de C++ enlazado es el libc++ del sistema');
 }
 r.terminar(arg('--json'));

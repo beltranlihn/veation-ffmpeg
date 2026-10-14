@@ -3,3 +3,5 @@
 # y, con --estricto (release), falla mientras quede alguno PENDIENTE o un texto cambie.
 LICENSE.md PENDIENTE
 COPYING.GPLv3 PENDIENTE
+libavcodec/jfdctfst.c#cabecera PENDIENTE
+libavutil/x86/x86inc.asm#cabecera PENDIENTE

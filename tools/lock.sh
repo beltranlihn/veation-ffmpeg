@@ -41,7 +41,7 @@ comprobar() {
                 else if (c == "gpg") gpg = v
                 else if (c == "firma") firma = v
             }
-            if (rol !~ /^(fuente|toolchain|herramienta|prueba|receta|referencia)$/) mal("rol invalido o ausente: " rol)
+            if (rol !~ /^(fuente|toolchain|herramienta|prueba|receta|referencia|instalador)$/) mal("rol invalido o ausente: " rol)
             pend = 0
             if ($3 == "git") {
                 if (commit == "PENDIENTE") pend = 1

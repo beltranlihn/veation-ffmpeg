@@ -1,0 +1,60 @@
+# instalador-fuente.yml - fuente de los plug-ins LGPL (StdUtils y Nsis7z) del instalador NSIS de VEATION,
+# que su THIRD-PARTY-NOTICES (seccion 13) promete «in the versions used». No es parte de FFmpeg: va a su
+# propia release, nsis-plugins-electron-builder-<version>-source (tools/instalador-fuente.sh). La
+# etiqueta no empieza por «v», asi que no dispara build.yml.
+name: instalador-fuente
+
+on:
+  workflow_dispatch:
+    inputs:
+      publicar:
+        description: 'Crear la release nsis-plugins-electron-builder-<version>-source'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  fuente:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      tag: ${{ steps.t.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: 7z para comprobar que el archivo de Nsis7z trae el fuente
+        run: command -v 7z || { sudo apt-get update && sudo apt-get install -y --no-install-recommends p7zip-full; }
+      - id: t
+        run: |
+          tools/instalador-fuente.sh out/instalador
+          echo "tag=$(node -p 'require("./out/instalador/instalador-fuente.json").tag')" >> "$GITHUB_OUTPUT"
+          cat out/instalador/instalador-fuente.json >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: instalador-fuente
+          path: out/instalador
+          retention-days: 30
+
+  publicar:
+    if: inputs.publicar
+    needs: fuente
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: instalador-fuente
+          path: out
+      - name: Release (queda inmutable al publicarla; se comprueba)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.fuente.outputs.tag }}
+        run: |
+          gh release create "$TAG" out/*.tar.xz out/SHA256SUMS out/instalador-fuente.json --draft \
+            --target "$GITHUB_SHA" --title "Plug-ins LGPL del instalador de VEATION (fuente)" --notes-file out/NOTAS.md
+          gh release edit "$TAG" --draft=false
+          inm="$(gh api "repos/$GH_REPO/releases/tags/$TAG" --jq .immutable)"
+          test "$inm" = true || { echo "ROJO: la release $TAG NO es inmutable (immutable=$inm)"; exit 1; }

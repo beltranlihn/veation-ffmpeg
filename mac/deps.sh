@@ -47,7 +47,8 @@ if find "$PREFIX" -name '*.dylib' | grep -q .; then
 fi
 
 # Cada objeto de cada .a con el minimo de macOS del lock (un objeto con minos mayor se notaria al
-# enlazar como «was built for newer macOS version»; aqui se mira antes y por biblioteca).
+# enlazar como «was built for newer 'macOS' version», que mac/ffmpeg.sh vigila; aqui se mira antes y
+# por biblioteca).
 for a in "$PREFIX"/lib/*.a; do
     malos="$(otool -l "$a" 2>/dev/null | awk '/cmd LC_BUILD_VERSION/ { b = 1 } b && /minos/ { print $2; b = 0 }' | sort -u | grep -v -x "$MACOS_MIN" || true)"
     [ -z "$malos" ] || vf_die "$(basename "$a") tiene objetos con minos $malos (se pide $MACOS_MIN)"

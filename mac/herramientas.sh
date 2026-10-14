@@ -52,7 +52,8 @@ rm -rf "$VF_HERRAMIENTAS/cmake"; mkdir -p "$VF_HERRAMIENTAS/cmake"
 tar -xf "$t" -C "$VF_HERRAMIENTAS/cmake" --strip-components=1
 for b in cmake ctest cpack; do ln -sf "$VF_HERRAMIENTAS/cmake/CMake.app/Contents/bin/$b" "$VF_HERRAMIENTAS/bin/$b"; done
 
-# meson: se ejecuta desde su tarball con el python3 del sistema (Xcode)
+# meson: se ejecuta desde su tarball con el python3 del sistema (el de Xcode 16.4 es 3.9.6; por eso el
+# lock fija meson 1.11.2, que pide 3.7: desde la 1.12 meson.py exige 3.10 y sale con error)
 t="$(bajar meson)"
 rm -rf "$VF_HERRAMIENTAS/meson"; mkdir -p "$VF_HERRAMIENTAS/meson"
 tar -xf "$t" -C "$VF_HERRAMIENTAS/meson" --strip-components=1
@@ -78,21 +79,48 @@ if [ "$VF_ARCH" = x86_64 ]; then
     autotools nasm
 fi
 
+# version_de <pieza del lock> <orden...>: ejecuta la orden, exige que funcione y que su salida diga la
+# version del lock (ref), e imprime su primera linea. Se llama SIEMPRE en una asignacion propia: dentro
+# del argumento de «echo», una sustitucion que falla no activa set -e (asi se colaba antes un meson que
+# no arrancaba, con su mensaje de error guardado en VERSIONES.txt y el paso en verde).
+version_de() {
+    local pieza="$1" ref salida; shift
+    ref="$(vf_lock_campo "$pieza" ref)"
+    salida="$("$@" 2>&1)" || vf_die "«$pieza»: «$*» fallo: $(printf '%s\n' "$salida" | head -3 | tr '\n' ' ')"
+    # la version tiene que aparecer como palabra entera (3.31.9 no vale para 3.31.90). Sin «grep -q» ni
+    # «head»: con pipefail, un lector que cierra antes de tiempo puede dar SIGPIPE al que escribe y un
+    # falso rojo; grep y sed leen hasta el final.
+    printf '%s\n' "$salida" | tr -c '0-9.\n' ' ' | tr ' ' '\n' | grep -xF -- "$ref" > /dev/null \
+        || vf_die "«$pieza»: «$*» dice «$(printf '%s\n' "$salida" | sed -n 1p)» y el lock pide $ref"
+    printf '%s\n' "$salida" | sed -n 1p
+}
+v_cmake="$(version_de cmake-mac cmake --version)"
+v_meson="$(version_de meson meson --version)"
+v_ninja="$(version_de ninja-mac ninja --version)"
+v_pkgconf="$(version_de pkgconf pkg-config --version)"
+v_m4="$(version_de m4 m4 --version)"
+v_autoconf="$(version_de autoconf autoconf --version)"
+v_automake="$(version_de automake automake --version)"
+v_libtool="$(version_de libtool glibtool --version)"
+v_nasm=""
+if [ "$VF_ARCH" = x86_64 ]; then v_nasm="$(version_de nasm nasm -v)"; fi
+v_python="$(/usr/bin/python3 --version 2>&1)"
+
 {
     echo "# herramientas del Mac ($VF_SISTEMA), instaladas por mac/herramientas.sh"
     echo "xcode: $(xcodebuild -version | tr '\n' ' ')"
     echo "sdk: $(xcrun --show-sdk-version) $(xcrun --show-sdk-path)"
     echo "clang: $(clang --version | head -1)"
-    echo "cmake: $(cmake --version | head -1)"
-    echo "meson: $(meson --version)"
-    echo "ninja: $(ninja --version)"
-    echo "pkg-config: $(pkg-config --version)"
-    echo "m4: $(m4 --version | head -1)"
-    echo "autoconf: $(autoconf --version | head -1)"
-    echo "automake: $(automake --version | head -1)"
-    echo "libtool: $(glibtool --version | head -1)"
-    [ "$VF_ARCH" = x86_64 ] && echo "nasm: $(nasm -v)"
-    echo "python3: $(/usr/bin/python3 --version)"
+    echo "cmake: $v_cmake"
+    echo "meson: $v_meson"
+    echo "ninja: $v_ninja"
+    echo "pkg-config: $v_pkgconf"
+    echo "m4: $v_m4"
+    echo "autoconf: $v_autoconf"
+    echo "automake: $v_automake"
+    echo "libtool: $v_libtool"
+    if [ -n "$v_nasm" ]; then echo "nasm: $v_nasm"; fi
+    echo "python3: $v_python"
     echo "# lock"
     printf '%s\n' "$FIRMA_LOCK"
 } > "$VERSIONES"

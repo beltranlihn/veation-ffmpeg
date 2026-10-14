@@ -3,3 +3,5 @@
 # y, con --estricto (release), falla mientras quede alguno PENDIENTE o un texto cambie.
 LICENSE.md PENDIENTE
 PATENTS.md PENDIENTE
+LICENSE-BSD2.md PENDIENTE
+third_party/fastfeat/LICENSE PENDIENTE

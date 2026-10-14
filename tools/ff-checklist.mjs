@@ -7,6 +7,7 @@
      --os win|mac              sistema (por defecto, el de esta maquina)
      --juez <ffmpeg>           FFmpeg de banco que NO se distribuye: fabrica el material y decodifica en
                                paralelo para comparar (Windows: el «8.1-full_build» de gyan; Mac: Homebrew)
+     --sin-juez                sin FFmpeg de banco aunque haya uno instalado (F sale SALTADO)
      --probe <ffprobe>         ffprobe para juzgar las salidas (por defecto el del juez, si no el hermano
                                del candidato)
      --version-esperada <v>    p. ej. 8.1.3-veation.1 (si no, se deduce de versions.lock y piezas.conf)
@@ -59,7 +60,8 @@ const VERSION = opt('--version-esperada') || (() => { try {
   const extra = /^--extra-version=(\S+)/m.exec(fs.readFileSync(path.join(RAIZ, 'piezas.conf'), 'utf8'))[1]; return `${ref}-${extra}`; } catch { return null; } })();
 
 const GYAN = 'C:/Users/beltr/AppData/Local/Microsoft/WinGet/Packages/Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe/ffmpeg-8.1-full_build/bin/';
-const JUEZ = opt('--juez') || [GYAN + 'ffmpeg.exe', '/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg'].find(p => fs.existsSync(p) && path.resolve(p) !== path.resolve(FF));
+/* --sin-juez: no buscar ninguno (en el runner Intel del Mac no hay FFmpeg de Homebrew con bottle; su F se pasa aparte) */
+const JUEZ = flag('--sin-juez') ? null : (opt('--juez') || [GYAN + 'ffmpeg.exe', '/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg'].find(p => fs.existsSync(p) && path.resolve(p) !== path.resolve(FF)));
 const hermano = path.join(path.dirname(FF), 'ffprobe' + (OS === 'win' ? '.exe' : ''));
 const PROBE = opt('--probe') || (JUEZ && [path.join(path.dirname(JUEZ), 'ffprobe' + (OS === 'win' ? '.exe' : ''))].find(p => fs.existsSync(p))) || (fs.existsSync(hermano) ? hermano : null);
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'veation-ffcheck-'));
@@ -105,7 +107,7 @@ const B = {
   'filtros': [FIL, 'scale pad color format null anull anullsrc aresample buffer buffersink abuffer abuffersink setsar setpts fps crop zscale tonemap psnr ssim geq vflip hflip scroll rotate hstack vstack testsrc testsrc2 nullsrc sine anoisesrc alphaextract premultiply unpremultiply'],
   'muxers': [MUX, 'mov mp4 null wav rawvideo image2 image2pipe apng s16le matroska webm mxf mxf_opatom ogg opus flac mp3 adts ipod'],
   'demuxers': [DMX, 'mov mp4 matroska webm mxf imf rawvideo wav w64 aiff caf image2 image2pipe avi mpegts mpeg flv ogg flac mp3 aac ivf obu h264 hevc yuv4mpegpipe gif apng dash hls concat lavfi'],
-  'hwaccel win': [HW, 'cuda d3d11va dxva2 d3d12va qsv', 'win'],
+  'hwaccel win': [HW, 'cuda d3d11va dxva2 d3d12va qsv amf', 'win'],
   'hwaccel mac': [HW, 'videotoolbox', 'mac'],
   'protocolos': [PROTO, 'file pipe'],
 };

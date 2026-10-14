@@ -5,7 +5,8 @@
 #   mac/construir.sh --fuentes <dir> --salida <dir>
 #
 # No usa la red: las herramientas ya tienen que estar (mac/herramientas.sh) y todo el fuente sale de
-# --fuentes. verificar-fuente.yml lo ejecuta dentro de sandbox-exec sin red, desde el paquete de fuente.
+# --fuentes. build.yml y verificar-fuente.yml (este, desde el paquete de fuente) lo ejecutan dentro de
+# sandbox-exec sin red.
 
 . "$(dirname "$0")/entorno.sh"
 

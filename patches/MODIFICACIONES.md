@@ -28,6 +28,12 @@ VERIFICAR** hasta la primera compilación del Mac. Si no funcionara, el plan B e
 comprobación de su marca, añadir aquí su bloque y cambiar la línea «Build» de los avisos a «modified by
 Alma Digital Studio on <fecha>» (FFMPEG-PROPIO.md, 4.4).
 
+El de snappy es el **único** `-lstdc++` que llega a FFmpeg en el Mac, y por eso el parche basta por sí
+solo: zimg también lo pedía (su `configure.ac` pone `STL_LIBS=-lstdc++` sin caso para darwin y `zimg.pc`
+lo copia en `Libs.private`), pero `mac/deps/45-zimg.sh` le da `STL_LIBS=-lc++`, la variable que el propio
+`zimg.pc.in` documenta para otro runtime de C++, y comprueba que el `.pc` instalado la lleva. No toca el
+fuente de zimg.
+
 ## Órdenes dentro de los scripts
 
 ### zimg (Windows y Mac): `#include <exception>` al principio de `src/zimg/api/zimg.cpp`
@@ -82,6 +88,50 @@ x265 copia a `Libs.private` las bibliotecas implícitas del compilador, incluida
 sed -E -e 's#[^ ]*libclang_rt[^ ]*\.a##g' -e 's#  +# #g' "$pc" > "$pc.tmp" && mv "$pc.tmp" "$pc"
 ```
 
+## Parches de crosstool-ng aplicados a la toolchain de Windows
+
+No son de esta receta, pero el runtime que va **dentro** de `ffmpeg.exe` (libgcc y libstdc++) sale de un
+GCC modificado por ellos. `ct-ng-config` lleva `CT_PATCH_BUNDLED=y`: crosstool-ng aplica los parches que
+trae en su propio árbol (`packages/<paquete>/<versión>/*.patch`) antes de compilar. El fuente completo
+está en el paquete: el tarball oficial de cada paquete en `toolchain-win/` y los parches dentro de
+`toolchain-win/crosstool-ng-*.tar.xz`. `tools/fuentes.sh` comprueba, al armar el paquete, que esta lista
+es exactamente la que trae ese archivo, y falla si sobra o falta alguno.
+
+GCC 16.2.0 (`packages/gcc/16.2.0/`, crosstool-ng `b1a94f6`); el runtime enlazado es libgcc y libstdc++:
+
+- `0000-libtool-leave-framework-alone.patch`
+- `0001-gcc-plugin-POSIX-include-sys-select-h.patch`
+- `0002-arm-softfloat-libgcc.patch`
+- `0003-libgcc-disable-split-stack-nothreads.patch`
+- `0004-Remove-use-of-include_next-from-c-headers.patch`
+- `0005-Allow-default-libc-to-be-specified-to-configure.patch`
+- `0006-driver-Extend-getenv-function-to-allow-default-value.patch`
+- `0007-Add-newlib-and-picolibc-as-default-C-library-choices.patch`
+- `0008-Support-picolibc-targets.patch`
+- `0009-gcc-Allow-g-to-work-differently-from-gcc.patch`
+- `0010-libgcc-Exclude-UCLIBC-from-GLIBC-thread-check.patch`
+- `0020-aarch64-mingw-disable-libbid-binary80.patch`
+- `0021-libstdc++-guard-cstdlib-module-exports.patch`
+- `0022-libstdc++-mingw-disable-cdtor-decloning.patch`
+- `0023-aarch64-mingw-fix-support-for-posix-threading.patch`
+- `0026-fix-clang-print-multi-os-directory.patch`
+
+mingw-w64 v14.0.0 (`packages/mingw-w64/v14.0.0/`), con el que crosstool-ng compila la toolchain:
+
+- `0000-mingw64-malloc.patch`
+- `0001-fix-arm64-fabsl-asm-constraint.patch`
+- `0002-winpthreads-fix-aarch64-support.patch`
+- `0003-frexpl-aarch64-support.patch`
+- `0004-fmal-aarch64-support.patch`
+- `0005-truncl-aarch64-support.patch`
+- `0006-export-missing-__mingw_strtold.patch`
+
+El CRT y winpthreads que se **enlazan** no son esos: `win/scripts.d/10-mingw.sh` los vuelve a compilar
+desde mingw-w64 @`57b59503`, sin parches, y los instala encima en el sysroot (que todo lo enlazado del
+CRT salga de esa segunda compilación está **SIN VERIFICAR** hasta mirar las rutas de `linked-win.txt`).
+binutils, gmp, mpfr, mpc, isl y el resto de dependencias de crosstool-ng solo construyen la toolchain:
+no se enlazan, y sus parches (si los hay) van igualmente dentro del archivo de crosstool-ng.
+
 ## Lo que NO es una modificación, aunque lo parezca
 
 - **AMF**: el archivo del paquete de fuente lleva solo `amf/public/include` y `LICENSE.txt` (`solo:` en
@@ -93,3 +143,8 @@ sed -E -e 's#[^ ]*libclang_rt[^ ]*\.a##g' -e 's#  +# #g' "$pc" > "$pc.tmp" && mv
   `.git`. El commit exacto está en `versions.lock` y en `MANIFIESTO.tsv`.
 - **`win/util/run_stage.sh`** pasa `strip --strip-unneeded --strip-debug` a las `.a` instaladas: procesa
   el resultado de la compilación, no el fuente.
+- **zimg en el Mac**: `STL_LIBS=-lc++` es un argumento de su `configure`, no un cambio del fuente.
+- **crosstool-ng** se compila desde su archivo, que no lleva `.git`: la receta escribe
+  `.tarball-version` (el número de versión que el propio crosstool-ng calcularía con git, tomado de
+  `CT_VERSION` de `ct-ng-config`) para que `maintainer/git-version-gen` no dé `UNKNOWN`. Es lo que hace
+  un tarball de release de crosstool-ng; el código no cambia.

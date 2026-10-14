@@ -26,6 +26,25 @@ mkdir -p "$SALIDA"; SALIDA="$(cd "$SALIDA" && pwd)"
 tar --version | grep -q 'GNU tar' || vf_die "fuentes.sh necesita GNU tar"
 "$VF_RAIZ/tools/fuentes-comprobar.sh" "$FUENTES"
 
+# Los parches que crosstool-ng aplica a GCC y a mingw-w64 (CT_PATCH_BUNDLED) estan inventariados en
+# patches/MODIFICACIONES.md: la lista tiene que ser EXACTAMENTE la que trae el archivo de crosstool-ng
+# del paquete. Si sube crosstool-ng o GCC, esto sale en rojo hasta actualizar el inventario.
+CTNG="$FUENTES/$(vf_archivo_fuente crosstool-ng)"
+en_archivo=""
+for pq in "gcc/$(vf_lock_campo gcc ref)" "mingw-w64/$(vf_lock_campo mingw-w64-ctng ref)"; do
+    l="$(tar -tf "$CTNG" | grep -E "^[^/]+/packages/$pq/[^/]+\.patch$" | sed 's#.*/##' || true)"
+    [ -n "$l" ] || vf_die "el archivo de crosstool-ng no trae parches en packages/$pq: ¿ha cambiado de sitio?"
+    en_archivo="$en_archivo$l"$'\n'
+done
+en_archivo="$(printf '%s' "$en_archivo" | grep -v '^$' | LC_ALL=C sort)"
+inventario="$(awk '/^## Parches de crosstool-ng/ { d = 1; next } /^## / { d = 0 } d && /^- `[^`]+\.patch`/ { sub(/^- `/, ""); sub(/`.*$/, ""); print }' \
+    "$VF_RAIZ/patches/MODIFICACIONES.md" | LC_ALL=C sort)"
+if [ "$en_archivo" != "$inventario" ]; then
+    diff <(printf '%s\n' "$inventario") <(printf '%s\n' "$en_archivo") >&2 || true
+    vf_die "los parches de crosstool-ng (derecha) no son los de patches/MODIFICACIONES.md (izquierda)"
+fi
+vf_log "parches de crosstool-ng inventariados: $(printf '%s\n' "$en_archivo" | wc -l | tr -d ' ')"
+
 VERSION="$(vf_version)"
 NOMBRE="veation-ffmpeg-$VERSION-source"
 COMMIT="$(git -C "$VF_RAIZ" rev-parse HEAD)"
@@ -80,10 +99,27 @@ La carpeta raiz de este paquete sirve tal cual como carpeta de fuentes (\`VF_FUE
 Despues, \`tools/info-binario.sh\` y \`tools/puertas.mjs\` comparan el resultado con \`build/BUILDINFO-*.txt\`.
 El workflow \`.github/workflows/verificar-fuente.yml\` hace exactamente esto en GitHub Actions.
 
+## Que usa la red al reconstruir
+
+Todo el fuente de lo que acaba en los binarios sale de este paquete. Lo unico que se descarga son
+herramientas que se usan sin modificar y el sistema base de la imagen de Windows:
+
+- **macOS**: \`mac/herramientas.sh\` baja CMake, meson, ninja, pkgconf, m4, autoconf, automake, libtool y
+  nasm, cada uno comprobado por sha256 (\`versions.lock\`). Despues, \`mac/construir.sh\` no usa la red (la
+  CI lo ejecuta dentro de \`sandbox-exec\` sin red).
+- **Windows**: la imagen \`win/images/base\` parte de Ubuntu fijado por digest e instala paquetes con apt
+  (sus versiones no se fijan; \`build/BUILDINFO-win.txt\` deja constancia), y baja el autoconf (.deb),
+  CMake y meson comprobados por sha256; \`win/images/base-win64\` instala wine con apt. crosstool-ng, la
+  toolchain entera (GCC, binutils, mingw-w64 y sus dependencias, desde \`toolchain-win/\`), cada
+  biblioteca y FFmpeg se compilan **sin red** (\`--network=none\`) desde este paquete.
+
 ## Modificaciones
 
-FFmpeg se compila sin modificar. Las unicas modificaciones a fuentes de terceros estan en
-\`receta/patches/MODIFICACIONES.md\`, con su fecha.
+FFmpeg se compila sin modificar. Toda modificacion a un fuente de terceros esta en
+\`receta/patches/MODIFICACIONES.md\`, con su fecha: las ordenes de los scripts de la receta y los parches
+que crosstool-ng aplica a GCC y a mingw-w64 al compilar la toolchain de Windows (el runtime libgcc y
+libstdc++ que se enlaza sale de ese GCC parcheado; los parches estan en el archivo de crosstool-ng de
+\`toolchain-win/\`).
 EOF
 
 # tar determinista

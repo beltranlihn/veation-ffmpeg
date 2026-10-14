@@ -1,12 +1,18 @@
 # build.yml - compila FFmpeg 8.1.3 para Windows x64 y macOS (arm64 + x86_64 -> universal), pasa todas
-# las puertas, arma el paquete de fuente y los avisos y, en una etiqueta v*, publica la release
-# (FFMPEG-PROPIO.md, 2.5). Cada «uses:» va fijado por SHA completo (tools/comprobar-repo.sh lo exige).
+# las puertas, arma el paquete de fuente y los avisos, RECONSTRUYE los binarios desde ese paquete y, en
+# una etiqueta v*, publica la release (FFMPEG-PROPIO.md, 2.5). Cada «uses:» de una accion va fijado por
+# SHA completo (tools/comprobar-repo.sh lo exige).
 #
-#   fuentes ─┬─ win64 ── win-comportamiento ──┐
-#            ├─ mac (arm64, x86_64) ── mac-universal ── mac-corpus ─┤
-#            │                                     paridad ─────────┼─ paquete ─ release (solo v*)
-#            └─ licencias (ScanCode; en v* o a mano)  ──────────────┘
+#   fuentes ─┬─ win64 ── win-comportamiento ─────────────────────────────┐
+#            ├─ mac (arm64, x86_64) ─┬─ mac-universal ── mac-corpus (x2) ─┤
+#            │                       └─ mac-x86_64-juez (F con Rosetta) ──┤
+#            │                                     paridad ──────────────┼─ paquete ─ verificar-fuente ─ release (solo v*)
+#            └─ licencias (ScanCode; en v* o a mano) ────────────────────────────────────────────────┘
 #   mac-control-negativo: en paralelo; TIENE que salir rojo por las razones esperadas.
+#
+# verificar-fuente se llama ANTES de publicar, con el paquete de fuente del artefacto «release»: una
+# release es inmutable y un paquete incompleto ya no tendria arreglo. (Una release publicada con el
+# GITHUB_TOKEN no dispara «on: release» en otros workflows, asi que esperar a ese evento no serviria.)
 name: build
 
 on:
@@ -16,6 +22,10 @@ on:
         description: 'Pasar tambien ScanCode (en una etiqueta v* se pasa siempre)'
         type: boolean
         default: false
+      verificar_fuente:
+        description: 'Reconstruir tambien desde el paquete de fuente, con sus controles negativos (en una etiqueta v* siempre)'
+        type: boolean
+        default: true
   push:
     tags: ['v*']
 
@@ -193,6 +203,7 @@ jobs:
     timeout-minutes: 240
     env:
       A: ${{ matrix.arch }}
+      HOMEBREW_NO_AUTO_UPDATE: 1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -205,8 +216,10 @@ jobs:
         run: tools/fuentes-comprobar.sh fuentes mac
       - name: Herramientas fijadas (el unico paso con red)
         run: mac/herramientas.sh
-      - name: Bibliotecas + FFmpeg + puertas del Mac (sin red)
-        run: mac/construir.sh --fuentes fuentes --salida "out/mac-$A"
+      - name: Bibliotecas + FFmpeg + puertas del Mac (SIN RED, el mismo aislamiento que verificar-fuente)
+        run: |
+          sandbox-exec -p '(version 1)(allow default)(deny network*)' \
+            mac/construir.sh --fuentes fuentes --salida "out/mac-$A"
       - name: Puertas estaticas, enlazado, manifiesto y BUILDINFO
         run: |
           tools/info-binario.sh "out/mac-$A/ffmpeg" "out/mac-$A/info"
@@ -216,16 +229,67 @@ jobs:
           tools/buildinfo.sh "mac-$A" "out/mac-$A/info" "out/mac-$A" "out/mac-$A/BUILDINFO-mac-$A.txt" "out/mac-$A/herramientas.txt"
           cp "out/mac-$A/info/buildconf.txt" "out/mac-$A/buildconf-mac-$A.txt"
           cp "out/mac-$A/configure.args" "out/mac-$A/configure-mac-$A.args"
+      # El juez es el FFmpeg de Homebrew, que solo tiene bottle para Apple Silicon (formulae.brew.sh,
+      # 2026-10-14: ffmpeg 9.0.2 sin bottle para macOS Intel; en macos-15-intel lo compilaria desde fuente
+      # dentro de este job, con la release esperando a una herramienta de prueba sin fijar). En x86_64,
+      # ff-checklist corre NATIVO sin juez (todo salvo la puerta F) y la F de esa rodaja la pasa
+      # mac-x86_64-juez en el runner arm64, con Rosetta; mac-corpus la cruza ademas con Windows (P6).
       - name: Juez (FFmpeg de Homebrew; solo para comparar, nunca se distribuye)
+        if: matrix.arch == 'arm64'
         run: brew install ffmpeg && echo "JUEZ=$(brew --prefix)/bin/ffmpeg" >> "$GITHUB_ENV" && "$(brew --prefix)/bin/ffmpeg" -hide_banner -version | head -1
       - name: ff-checklist (VideoToolbox con -allow_sw 1 en la maquina virtual)
-        run: node tools/ff-checklist.mjs "out/mac-$A/ffmpeg" --os mac --ci --juez "$JUEZ" --json "out/mac-$A/checklist-mac-$A.json"
+        run: |
+          if [ "$A" = arm64 ]; then
+            node tools/ff-checklist.mjs "out/mac-$A/ffmpeg" --os mac --ci --juez "$JUEZ" --json "out/mac-$A/checklist-mac-$A.json"
+          else
+            node tools/ff-checklist.mjs "out/mac-$A/ffmpeg" --os mac --ci --sin-juez --json "out/mac-$A/checklist-mac-$A.json"
+          fi
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: mac-${{ matrix.arch }}
           path: out/mac-${{ matrix.arch }}
           retention-days: 7
+
+  mac-x86_64-juez:
+    # La puerta F (decodificar igual que el juez) de la rodaja x86_64, en el runner arm64 con Rosetta y
+    # contra el FFmpeg de Homebrew con bottle. Sin Rosetta en el runner, NO MEDIDA (instalarla acepta la
+    # licencia de Apple: lo decide una persona); la decodificacion nativa en Intel la sigue midiendo P6.
+    needs: mac
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: 1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: mac-x86_64
+          path: out/mac-x86_64
+      - name: ¿Hay Rosetta en este runner?
+        id: rosetta
+        run: |
+          chmod 755 out/mac-x86_64/ffmpeg out/mac-x86_64/ffprobe
+          if arch -x86_64 /usr/bin/true 2>/dev/null; then echo "hay=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "Puerta F de la rodaja x86_64 NO MEDIDA: este runner no tiene Rosetta" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "hay=0" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Juez (FFmpeg de Homebrew)
+        if: steps.rosetta.outputs.hay == '1'
+        run: brew install ffmpeg && echo "JUEZ=$(brew --prefix)/bin/ffmpeg" >> "$GITHUB_ENV"
+      - name: F con la rodaja x86_64 (Rosetta) contra el juez
+        if: steps.rosetta.outputs.hay == '1'
+        run: |
+          test "$(lipo -archs out/mac-x86_64/ffmpeg)" = x86_64
+          node tools/ff-checklist.mjs out/mac-x86_64/ffmpeg --os mac --ci --solo F --juez "$JUEZ" --json checklist-F-x86_64-rosetta.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: checklist-F-x86_64-rosetta
+          path: checklist-F-x86_64-rosetta.json
+          retention-days: 7
+          if-no-files-found: ignore
 
   mac-universal:
     needs: mac
@@ -256,9 +320,21 @@ jobs:
           retention-days: 7
 
   mac-corpus:
+    # El universal decodifica el MISMO corpus que Windows en las DOS arquitecturas, cada una en su
+    # hardware (macos-15 ejecuta la rodaja arm64; macos-15-intel, la x86_64, con su NASM/SSE).
     needs: [mac-universal, win-comportamiento]
-    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
+    env:
+      A: ${{ matrix.arch }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -272,11 +348,12 @@ jobs:
       - name: El Mac decodifica el MISMO corpus que Windows
         run: |
           chmod 755 out/mac-universal/ffmpeg
-          node tools/corpus.mjs out/mac-universal/ffmpeg corpus-f --salida corpus-mac.json
+          test "$(uname -m)" = "$A"
+          node tools/corpus.mjs out/mac-universal/ffmpeg corpus-f --salida "corpus-mac-$A.json"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: corpus-mac
-          path: corpus-mac.json
+          name: corpus-mac-${{ matrix.arch }}
+          path: corpus-mac-${{ matrix.arch }}.json
           retention-days: 7
 
   mac-control-negativo:
@@ -284,6 +361,8 @@ jobs:
     # estas puertas, las puertas no medirian nada (FFMPEG-PROPIO.md, 5.6).
     runs-on: macos-15
     timeout-minutes: 30
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: 1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: brew install ffmpeg
@@ -302,20 +381,22 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v') || inputs.scancode
     needs: fuentes
     runs-on: ubuntu-24.04
-    timeout-minutes: 240
+    timeout-minutes: 300
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: fuentes
           path: fuentes
-      - name: ScanCode contra la base revisada
+      - name: ScanCode contra la base revisada (fuente enlazado + runtime de Windows; cada licencia, avisada)
         run: tools/scancode.sh fuentes out/scancode ${{ startsWith(github.ref, 'refs/tags/v') && '--estricto' || '' }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: scancode
-          path: out/scancode/scancode-resumen.json
+          path: |
+            out/scancode/scancode-resumen.json
+            out/scancode/scancode-propuesta.json
           retention-days: 30
 
   paridad:
@@ -326,15 +407,17 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          pattern: '{win64,mac-arm64,mac-x86_64,win-comportamiento,corpus-mac}'
+          pattern: '{win64,mac-arm64,mac-x86_64,win-comportamiento,corpus-mac-arm64,corpus-mac-x86_64}'
           path: art
       - name: Mismo FFmpeg en los tres binarios salvo lo propio de cada sistema
         run: |
           node tools/paridad.mjs art/win64/manifest-win.json art/mac-arm64/manifest-mac-arm64.json art/mac-x86_64/manifest-mac-x86_64.json \
-            --corpus art/win-comportamiento/corpus-win.json art/corpus-mac/corpus-mac.json --json paridad.json
+            --corpus-win art/win-comportamiento/corpus-win.json \
+            --corpus-mac art/corpus-mac-arm64/corpus-mac-arm64.json --corpus-mac art/corpus-mac-x86_64/corpus-mac-x86_64.json \
+            --json paridad.json
 
   paquete:
-    needs: [paridad, win-comportamiento, mac-universal, mac-control-negativo]
+    needs: [paridad, win-comportamiento, mac-universal, mac-control-negativo, mac-x86_64-juez]
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
@@ -353,11 +436,12 @@ jobs:
         run: node tools/avisos.mjs textos --fuentes art/fuentes --salida out/avisos ${{ startsWith(github.ref, 'refs/tags/v') && '--estricto' || '' }}
       - name: Paquete de fuente completo
         run: tools/fuentes.sh art/fuentes out/build out/avisos out/release | tee out/fuentes.log
-      - name: FFMPEG-NOTICES.txt y SOURCE.txt
+      - name: FFMPEG-NOTICES.txt y SOURCE.txt (todo lo enlazado, con ficha)
         run: |
           sha="$(tail -1 out/fuentes.log | awk '$1 == "sha256" { print $2 }')"
           node tools/avisos.mjs notices --avisos out/avisos --manifiestos out/manifiestos \
-            --fuente "$(ls out/release/*-source.tar.xz* | head -1)" --sha-entero "$sha" --salida out/release
+            --fuente "$(ls out/release/*-source.tar.xz* | head -1)" --sha-entero "$sha" --salida out/release \
+            --enlazado out/build
       - name: Zips, manifest.json y SHA256SUMS
         run: |
           tools/empaquetar.sh art/win64 art/mac-universal out/build out/release
@@ -376,11 +460,20 @@ jobs:
           path: out/avisos/revision.txt
           retention-days: 30
 
+  verificar-fuente:
+    # ANTES de publicar: el paquete de fuente del artefacto «release» reconstruye los binarios y, sin
+    # snappy o sin gcc, la reconstruccion falla por eso. En una etiqueta v* siempre.
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.verificar_fuente
+    needs: paquete
+    uses: ./.github/workflows/verificar-fuente.yml
+    with:
+      artefacto: release
+
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [paquete, licencias]
+    needs: [paquete, licencias, verificar-fuente]
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 90
     permissions:
       contents: write
       id-token: write
@@ -401,3 +494,17 @@ jobs:
           gh release create "$GITHUB_REF_NAME" out/release/* --draft --prerelease --verify-tag \
             --title "FFmpeg $GITHUB_REF_NAME" --notes-file out/NOTAS.md
           gh release edit "$GITHUB_REF_NAME" --draft=false
+      - name: Lo publicado es inmutable y es lo verificado
+        # La inmutabilidad la da un ajuste del repositorio (README, paso 1) que nadie comprobaba: si no
+        # esta activado, la release sale editable sin aviso. Y lo que se baja de la release tiene que ser
+        # byte a byte lo que reconstruyo verificar-fuente (el artefacto). OJO: inmutable no impide BORRAR
+        # la release: la disponibilidad del fuente la garantiza el espejo (FFMPEG-PROPIO.md, 4.1).
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          inm="$(gh api "repos/$GH_REPO/releases/tags/$GITHUB_REF_NAME" --jq .immutable)"
+          test "$inm" = true || { echo "ROJO: la release $GITHUB_REF_NAME NO es inmutable (immutable=$inm): activar «immutable releases» y publicar veation.N+1"; exit 1; }
+          mkdir publicado && cd publicado
+          gh release download "$GITHUB_REF_NAME"
+          sha256sum -c ../out/release/SHA256SUMS

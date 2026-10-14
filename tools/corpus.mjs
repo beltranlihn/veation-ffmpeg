@@ -2,7 +2,7 @@
 // runner de Windows) y escribe el framemd5 de cada archivo, igual que la puerta F. Sirve para la paridad
 // P6: el binario del Mac tiene que decodificar los MISMOS archivos exactamente igual que el de Windows.
 //
-//   node tools/corpus.mjs <ffmpeg> <dir del corpus> --salida <corpus-mac.json>
+//   node tools/corpus.mjs <ffmpeg> <dir del corpus> --salida <corpus-mac-<arch>.json>
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';

@@ -2,7 +2,8 @@
 // (FFMPEG-PROPIO.md, 2.5.5).
 //
 //   node tools/paridad.mjs <manifest-win.json> <manifest-mac-arm64.json> [<manifest-mac-x86_64.json>]
-//        [--corpus <corpus-win.json> <corpus-mac.json>] [--json f]
+//        [--corpus-win <corpus-win.json> --corpus-mac <corpus-mac-arm64.json> [--corpus-mac <...x86_64.json>]]
+//        [--json f]
 //
 // Exige:
 //   P1  la misma cadena de version en todos (A1 del diseno: «ffmpeg version 8.1.3-veation.N»);
@@ -12,17 +13,25 @@
 //   P4  codificadores, decodificadores, filtros, muxers, demuxers, protocolos, bsf y hwaccels: toda
 //       diferencia casa con expected/paridad-permitida.txt;
 //   P5  las dos arquitecturas del Mac, identicas en todo salvo --arch y --enable-neon;
-//   P6  (con --corpus) el corpus de la puerta F se decodifica igual en Windows y en el Mac (framemd5).
+//   P6  (con --corpus-win/--corpus-mac) el corpus de la puerta F se decodifica igual en Windows y en
+//       CADA arquitectura del Mac (framemd5): el universal ejecutado en macos-15 (rodaja arm64) y en
+//       macos-15-intel (rodaja x86_64).
 import fs from 'node:fs';
 import path from 'node:path';
 import { RAIZ, leerPiezas, argsConfigure, casa, informe } from './comun.mjs';
 
 const args = process.argv.slice(2);
-const ic = args.indexOf('--corpus');
-const corpus = ic >= 0 ? [args[ic + 1], args[ic + 2]] : null;
-const ij = args.indexOf('--json'); const json = ij >= 0 ? args[ij + 1] : null;
-const archivos = args.filter((a, i) => !a.startsWith('--') && !(ic >= 0 && (i === ic + 1 || i === ic + 2)) && !(ij >= 0 && i === ij + 1));
-if (archivos.length < 2) { console.error('uso: paridad.mjs <manifest-win> <manifest-mac-arm64> [<manifest-mac-x86_64>] [--corpus w m] [--json f]'); process.exit(2); }
+// opciones con valor (--corpus-mac puede repetirse); el resto son los manifiestos, en orden
+const opciones = { '--corpus-win': [], '--corpus-mac': [], '--json': [] };
+const archivos = [];
+for (let i = 0; i < args.length; i++) {
+  if (args[i] in opciones) { if (i + 1 >= args.length) { console.error(`falta el valor de ${args[i]}`); process.exit(2); } opciones[args[i]].push(args[++i]); }
+  else if (args[i].startsWith('--')) { console.error(`opcion desconocida: ${args[i]}`); process.exit(2); }
+  else archivos.push(args[i]);
+}
+const json = opciones['--json'][0] || null;
+const corpusWin = opciones['--corpus-win'][0] || null, corpusMac = opciones['--corpus-mac'];
+if (archivos.length < 2 || (corpusWin ? !corpusMac.length : corpusMac.length)) { console.error('uso: paridad.mjs <manifest-win> <manifest-mac-arm64> [<manifest-mac-x86_64>] [--corpus-win w --corpus-mac m [--corpus-mac m2]] [--json f]'); process.exit(2); }
 const [win, ...macs] = archivos.map(f => JSON.parse(fs.readFileSync(f, 'utf8')));
 const piezas = leerPiezas();
 const r = informe('Paridad Windows <-> Mac');
@@ -75,12 +84,18 @@ if (macs.length === 2) {
   r.si(d.length === 0, 'P5b', 'mac-arm64 y mac-x86_64: -buildconf igual salvo --arch y --enable-neon', d.join(' '));
 }
 
-// P6: corpus
-if (corpus) {
-  const cw = JSON.parse(fs.readFileSync(corpus[0], 'utf8')), cm = JSON.parse(fs.readFileSync(corpus[1], 'utf8'));
-  const comunes = Object.keys(cw).filter(k => k in cm);
-  const distintos = comunes.filter(k => cw[k] !== cm[k]);
-  if (!comunes.length) r.nm('P6', 'el corpus de Windows y el del Mac no tienen formatos en comun');
-  else r.si(distintos.length === 0, 'P6', `${comunes.length} formatos del corpus F decodificados igual en Windows y en el Mac`, 'distintos: ' + distintos.join(' '));
+// P6: corpus, una comprobacion por cada corpus del Mac
+if (corpusWin) {
+  const cw = JSON.parse(fs.readFileSync(corpusWin, 'utf8'));
+  for (const f of corpusMac) {
+    const cm = JSON.parse(fs.readFileSync(f, 'utf8')); const nombre = path.basename(f, '.json');
+    const comunes = Object.keys(cw).filter(k => k in cm);
+    const distintos = comunes.filter(k => cw[k] !== cm[k]);
+    const soloWin = Object.keys(cw).filter(k => !(k in cm));
+    if (!Object.keys(cw).length) r.nm('P6', `${nombre}: el corpus de Windows esta vacio (¿el juez no fabrico nada?)`);
+    else if (!comunes.length) r.rojo('P6', `${nombre}: no decodifica ningun formato del corpus de Windows`);
+    else r.si(distintos.length === 0 && soloWin.length === 0, 'P6', `${nombre}: los ${comunes.length} formatos del corpus F decodificados igual que en Windows`,
+      [distintos.length ? 'distintos: ' + distintos.join(' ') : '', soloWin.length ? 'no decodifica: ' + soloWin.join(' ') : ''].filter(Boolean).join(' · '));
+  }
 }
 r.terminar(json);
