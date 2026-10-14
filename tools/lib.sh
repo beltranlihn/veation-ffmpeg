@@ -22,6 +22,33 @@ vf_curl() {
         --retry 5 --retry-delay 10 --retry-all-errors "$@"
 }
 
+# vf_espejos <url>: la URL del lock y, si es de ftp.gnu.org, la misma ruta en espejos de GNU.
+# ftp.gnu.org limita a los runners de GitHub: en «congelar» dejo de responder tras unas cuantas
+# descargas seguidas (curl 28, sin conexion durante minutos). El lock sigue diciendo el origen
+# canonico; el espejo es solo transporte y lo que baja se juzga igual, por sha256 o firma.
+vf_espejos() {
+    printf '%s\n' "$1"
+    case "$1" in
+        https://ftp.gnu.org/gnu/*)
+            printf '%s\n' "https://mirrors.kernel.org/gnu/${1#https://ftp.gnu.org/gnu/}" \
+                "https://ftpmirror.gnu.org/${1#https://ftp.gnu.org/gnu/}" ;;
+    esac
+}
+
+# vf_descargar <url> <destino>: baja la URL (o, si falla, su espejo) a <destino>. Con espejos, cada
+# intento lleva menos reintentos para no pasar minutos en un origen que no contesta.
+vf_descargar() {
+    local url="$1" destino="$2" u n reintentos
+    n="$(vf_espejos "$url" | wc -l | tr -d ' ')"
+    reintentos=5; [ "$n" -gt 1 ] && reintentos=2
+    for u in $(vf_espejos "$url"); do
+        [ "$u" = "$url" ] || vf_log "AVISO: $url no responde; se prueba el espejo $u"
+        if vf_curl --retry "$reintentos" -o "$destino" "$u"; then return 0; fi
+    done
+    rm -f "$destino"
+    vf_die "no se pudo bajar $url$([ "$n" -gt 1 ] && printf ' ni sus espejos')"
+}
+
 # SHA-256 de un archivo, igual en Linux, macOS y Git Bash.
 vf_sha256() {
     if command -v sha256sum >/dev/null 2>&1; then
@@ -134,7 +161,7 @@ vf_extraer() {
 verificar_firma() {
     local archivo="$1" url="$2" huella="$3" clave="${4:-}" firma gnupg estado
     case "$url" in *.sig) firma="$archivo.sig" ;; *) firma="$archivo.asc" ;; esac
-    vf_curl -o "$firma" "$url"
+    vf_descargar "$url" "$firma"
     gnupg="$(mktemp -d)"; chmod 700 "$gnupg"
     gpg --homedir "$gnupg" --batch --keyserver hkps://keyserver.ubuntu.com --recv-keys "$huella" >/dev/null 2>&1 \
         || gpg --homedir "$gnupg" --batch --keyserver hkps://keys.openpgp.org --recv-keys "$huella" >/dev/null 2>&1 \

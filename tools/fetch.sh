@@ -27,7 +27,7 @@ bajar_tarball() {
     destino="$DIR/tar/$(basename "$url")"
     case "$sha" in PENDIENTE|"") vf_die "«$pieza» sin sha256 en el lock (congelar primero)" ;; esac
     if [ ! -f "$destino" ] || [ "$(vf_sha256 "$destino")" != "$sha" ]; then
-        vf_curl -o "$destino.part" "$url"
+        vf_descargar "$url" "$destino.part"
         mv "$destino.part" "$destino"
     fi
     [ "$(vf_sha256 "$destino")" = "$sha" ] || vf_die "«$pieza»: sha256 de $(basename "$url") distinto del lock"
