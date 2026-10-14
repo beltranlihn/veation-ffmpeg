@@ -125,7 +125,11 @@ congelar_oci() {
     local pieza="$1" imagen digest
     hace_falta "$pieza" digest || return 0
     imagen="$(vf_lock_campo "$pieza" origen)"
-    digest="$(docker buildx imagetools inspect "$imagen" | awk '$1 == "Digest:" { print $2; exit }')"
+    # A archivo y despues awk: con «| awk '... exit'» el awk cerraba la tuberia en la tercera linea,
+    # buildx moria por SIGPIPE escribiendo el resto de los manifiestos y docker devolvia 255 sin
+    # mensaje (pipefail + set -e: congelar paraba en seco tras la ultima pieza anterior).
+    docker buildx imagetools inspect "$imagen" > "$TMP/oci-$pieza.txt"
+    digest="$(awk '$1 == "Digest:" { print $2; exit }' "$TMP/oci-$pieza.txt")"
     printf '%s' "$digest" | grep -Eq '^sha256:[0-9a-f]{64}$' || vf_die "$pieza: digest invalido «$digest»"
     anotar "$pieza" digest "$digest"
 }
