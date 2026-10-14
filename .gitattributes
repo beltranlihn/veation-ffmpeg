@@ -1,0 +1,6 @@
+# Todo el texto va con LF: los scripts se ejecutan en Linux y macOS, y un CRLF rompe bash.
+* text=auto eol=lf
+*.patch -text
+*.png binary
+*.zip binary
+*.xz binary

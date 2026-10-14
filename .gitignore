@@ -1,0 +1,7 @@
+# Descargas y salidas de la compilacion: nunca se versionan.
+/sources/
+/out/
+/win/.cache/
+/win/ffbuild/
+/win/artifacts/
+/win/Dockerfile*
