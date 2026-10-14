@@ -1,0 +1,5 @@
+# sha256 de cada texto, revisado A MANO contra el fuente de la version del lock.
+# PENDIENTE hasta la primera revision: tools/avisos.mjs escribe los valores en out/avisos/revision.txt
+# y, con --estricto (release), falla mientras quede alguno PENDIENTE o un texto cambie.
+COPYING PENDIENTE
+COPYING.0BSD PENDIENTE

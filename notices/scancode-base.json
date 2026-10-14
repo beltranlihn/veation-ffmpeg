@@ -1,0 +1,4 @@
+{
+ "_estado": "PENDIENTE",
+ "_nota": "Base revisada de ScanCode (tools/scancode.sh). Se rellena con el scancode-resumen.json de la primera ejecucion, tras revisarlo pieza por pieza, y se quita _estado. Mientras siga PENDIENTE, una release no sale (--estricto)."
+}

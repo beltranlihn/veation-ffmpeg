@@ -99,4 +99,5 @@ juez-win          win      herramienta  https://github.com/GyanD/codexffmpeg/rel
 sde-win           win      herramienta  PENDIENTE                                                                         10.5           rol:prueba sha256:PENDIENTE opcional:si
 
 # --------------------------------------------------------------- referencias (no se descargan en build.yml)
-electron          ninguno  referencia   https://github.com/electron/electron.git                                          v44.7.0        rol:referencia chromium:152.0.7977.130
+scancode          ninguno  referencia   https://pypi.org/project/scancode-toolkit/                                        32.5.0         rol:herramienta
+electron          ninguno  referencia  https://github.com/electron/electron.git                                          v44.7.0        rol:referencia chromium:152.0.7977.130
