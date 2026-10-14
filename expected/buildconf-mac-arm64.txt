@@ -1,0 +1,41 @@
+--prefix=/tmp/vf/instalado
+--pkg-config=pkg-config --cc=clang
+--cxx=clang++
+--arch=arm64
+--extra-version=veation.1
+--enable-gpl
+--enable-version3
+--disable-autodetect
+--disable-shared
+--enable-static
+--pkg-config-flags=--static
+--disable-doc
+--disable-ffplay
+--enable-ffprobe
+--disable-network
+--disable-indevs
+--enable-indev=lavfi
+--disable-outdevs
+--enable-zlib
+--enable-bzlib
+--enable-lzma
+--enable-iconv
+--enable-libxml2
+--enable-libsnappy
+--enable-libzimg
+--enable-libx264
+--enable-libx265
+--enable-libvpx
+--enable-libdav1d
+--enable-libsvtav1
+--enable-libopus
+--enable-libmp3lame
+--disable-encoders
+--enable-encoder='libx264,libx265,libsvtav1,libvpx_vp9,hap,dnxhd,png,apng,tiff,exr,dpx,mjpeg,flac,libopus,libmp3lame,pcm_*,rawvideo,wrapped_avframe,vnull,anull'
+--disable-decoder='vvc,vvc_qsv'
+--enable-videotoolbox
+--enable-audiotoolbox
+--enable-encoder='h264_videotoolbox,hevc_videotoolbox,prores_videotoolbox,aac_at'
+--extra-cflags='-mmacosx-version-min=13.0 -I/tmp/vf/prefix/include'
+--extra-ldflags='-mmacosx-version-min=13.0 -L/tmp/vf/prefix/lib -L/tmp/vf/shim'
+--enable-neon

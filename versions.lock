@@ -1,0 +1,102 @@
+# versions.lock - UNICA fuente de versiones de veation-ffmpeg (FFMPEG-PROPIO.md, 2.3).
+#
+# La leen con awk tools/lock.sh (y a traves de el aplicar-lock.sh, fetch.sh, congelar.sh y los
+# scripts de mac/). Una fila por pieza; columnas separadas por espacios:
+#
+#   pieza  sistemas  tipo  origen  ref  [clave:valor ...]
+#
+# sistemas  win | mac | win,mac | ninguno
+# tipo      git          repositorio; la identidad es el COMMIT (commit:<40 hex>)
+#           tarball      archivo publicado por el proyecto; la identidad es el SHA-256 (sha256:<64 hex>)
+#           oci          imagen de contenedor; la identidad es el digest (digest:sha256:<64 hex>)
+#           herramienta  archivo de una herramienta que se usa SIN modificar (sha256:<64 hex>)
+#           referencia   dato fijo que no se descarga (version de Xcode, de Electron)
+# claves    rol:fuente      enlazada en el binario; va al paquete de fuente
+#           rol:toolchain   compila el binario y aporta el runtime enlazado; va al paquete de fuente
+#           rol:herramienta se usa sin modificar; NO va al paquete (GPLv3 1, «System Libraries» / herramientas)
+#           rol:prueba      solo para las pruebas de la CI; nunca se distribuye
+#           rol:receta      el fork de BtbN (win/); va al paquete como parte de la receta
+#           commit: sha256: digest:   identidad; PENDIENTE hasta que tools/congelar.sh la calcule
+#           gpg:<huella> firma:<url>  firma OpenPGP que congelar.sh y fetch.sh verifican
+#           clave:<url>               de donde sacar la clave si no esta en los servidores (vale solo
+#                                     si su huella es exactamente la de gpg:)
+#           etiqueta:<tag>            etiqueta git que corresponde al tarball (se comprueba con commit:)
+#           resolver:rev-count        ref = r<N>: el commit N-esimo de la rama principal (x264)
+#           solo:<ruta>[,<ruta>]      se archiva solo esa parte del arbol (cabeceras que se compilan)
+#           contenido:<ruta>=<sha256> archivo concreto dentro del tarball (juez de las pruebas)
+#           opcional:si               puede seguir PENDIENTE; la puerta que lo usa sale «NO MEDIDA»
+#           chromium:<version>        version de Chromium que corresponde a la de Electron
+#
+# PENDIENTE: valor que todavia no se ha calculado. tools/lock.sh comprobar falla mientras quede
+# alguno (salvo opcional:si) y build.yml no arranca. Se resuelven con el workflow «congelar»
+# (o tools/congelar.sh en local) y el resultado se revisa y se versiona a mano.
+#
+# Regla de versiones del primer cambio (FFMPEG-PROPIO.md, 1.5): la etiqueta igual a la del binario
+# de gyan o, si no la hay, la anterior mas cercana; zlib, bzip2, xz, libiconv, libxml2 y zimg, la
+# ultima estable (xz nunca 5.6.0 ni 5.6.1). Las subidas de version van en rondas aparte.
+
+# ---------------------------------------------------------------------------------------------- FFmpeg
+ffmpeg            win,mac  tarball      https://ffmpeg.org/releases/ffmpeg-8.1.3.tar.xz                                   8.1.3          rol:fuente sha256:PENDIENTE gpg:FCF986EA15E6E293A5644F10B4322F04D67658D8 firma:https://ffmpeg.org/releases/ffmpeg-8.1.3.tar.xz.asc clave:https://ffmpeg.org/ffmpeg-devel.asc etiqueta:n8.1.3 commit:1041abdc962f4cc4f394aa8de9dc5236c0c3b9e7
+
+# ------------------------------------------------------------------------ bibliotecas de los dos sistemas
+x264              win,mac  git          https://code.videolan.org/videolan/x264.git                                       r3223          rol:fuente commit:PENDIENTE resolver:rev-count
+x265              win,mac  git          https://github.com/Multicorewareinc/x265.git                                      4.1            rol:fuente commit:PENDIENTE
+libvpx            win,mac  git          https://chromium.googlesource.com/webm/libvpx                                     v1.16.0        rol:fuente commit:PENDIENTE
+dav1d             win,mac  git          https://code.videolan.org/videolan/dav1d.git                                      1.5.3          rol:fuente commit:PENDIENTE
+svtav1            win,mac  git          https://gitlab.com/AOMediaCodec/SVT-AV1.git                                       v4.0.1         rol:fuente commit:PENDIENTE
+snappy            win,mac  git          https://github.com/google/snappy.git                                              1.2.2          rol:fuente commit:PENDIENTE
+zimg              win,mac  git          https://github.com/sekrit-twc/zimg.git                                            release-3.0.6  rol:fuente commit:PENDIENTE
+libxml2           win,mac  git          https://github.com/GNOME/libxml2.git                                              v2.15.4        rol:fuente commit:PENDIENTE
+opus              win,mac  tarball      https://downloads.xiph.org/releases/opus/opus-1.6.1.tar.gz                        1.6.1          rol:fuente sha256:PENDIENTE
+lame              win,mac  tarball      https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz       3.100          rol:fuente sha256:PENDIENTE
+xz                win,mac  tarball      https://github.com/tukaani-project/xz/releases/download/v5.8.4/xz-5.8.4.tar.xz    5.8.4          rol:fuente sha256:PENDIENTE
+
+# ---------------------------------------------------------------------- bibliotecas y cabeceras de Windows
+zlib              win      git          https://github.com/madler/zlib.git                                                v1.3.2         rol:fuente commit:PENDIENTE
+bzip2             win      tarball      https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz                               1.0.8          rol:fuente sha256:PENDIENTE
+libiconv          win      tarball      https://ftp.gnu.org/gnu/libiconv/libiconv-1.19.tar.gz                             1.19           rol:fuente sha256:PENDIENTE
+ffnvcodec         win      git          https://github.com/FFmpeg/nv-codec-headers.git                                    n12.1.14.0     rol:fuente commit:PENDIENTE
+amf               win      git          https://github.com/GPUOpen-LibrariesAndSDKs/AMF.git                               v1.5.0         rol:fuente commit:PENDIENTE solo:amf/public/include,LICENSE.txt
+libvpl            win      git          https://github.com/intel/libvpl.git                                               v2.16.0        rol:fuente commit:PENDIENTE
+mingw-std-threads win      git          https://github.com/meganz/mingw-std-threads.git                                   c931bac289dd431f1dd30fc4a5d1a7be36668073 rol:fuente commit:c931bac289dd431f1dd30fc4a5d1a7be36668073
+
+# ------------------------------------------------- toolchain de Windows (aporta el runtime enlazado: va al paquete)
+mingw-w64         win      git          https://github.com/mingw-w64/mingw-w64.git                                        57b595039040eaa15bece85b7cc71d952281b269 rol:toolchain commit:57b595039040eaa15bece85b7cc71d952281b269
+crosstool-ng      win      git          https://github.com/crosstool-ng/crosstool-ng.git                                  b1a94f6        rol:toolchain commit:PENDIENTE
+gcc               win      tarball      https://ftp.gnu.org/gnu/gcc/gcc-16.2.0/gcc-16.2.0.tar.xz                          16.2.0         rol:toolchain sha256:PENDIENTE
+binutils          win      tarball      https://ftp.gnu.org/gnu/binutils/binutils-2.47.tar.xz                             2.47           rol:toolchain sha256:PENDIENTE
+mingw-w64-ctng    win      tarball      https://downloads.sourceforge.net/project/mingw-w64/mingw-w64/mingw-w64-release/mingw-w64-v14.0.0.tar.bz2 v14.0.0 rol:toolchain sha256:PENDIENTE
+gmp               win      tarball      https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz                                      6.3.0          rol:toolchain sha256:PENDIENTE
+mpfr              win      tarball      https://ftp.gnu.org/gnu/mpfr/mpfr-4.2.2.tar.xz                                    4.2.2          rol:toolchain sha256:PENDIENTE
+mpc               win      tarball      https://ftp.gnu.org/gnu/mpc/mpc-1.3.1.tar.gz                                      1.3.1          rol:toolchain sha256:PENDIENTE
+isl               win      tarball      https://libisl.sourceforge.io/isl-0.27.tar.xz                                     0.27           rol:toolchain sha256:PENDIENTE
+zlib-ctng         win      tarball      https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.xz        1.3.1          rol:toolchain sha256:PENDIENTE
+zstd-ctng         win      tarball      https://github.com/facebook/zstd/releases/download/v1.5.7/zstd-1.5.7.tar.gz       1.5.7          rol:toolchain sha256:PENDIENTE
+gettext-ctng      win      tarball      https://ftp.gnu.org/gnu/gettext/gettext-0.26.tar.xz                               0.26           rol:toolchain sha256:PENDIENTE
+mold-ctng         win      tarball      https://github.com/rui314/mold/archive/refs/tags/v2.42.0.tar.gz                   2.42.0         rol:toolchain sha256:PENDIENTE
+btbn              win      git          https://github.com/BtbN/FFmpeg-Builds.git                                         63ac3265       rol:receta commit:63ac3265b0789ea16c7b1f8351cd2ad195a28722
+
+# ---------------------------------------------------------- herramientas usadas sin modificar (no van al paquete)
+ubuntu-base       win      oci          docker.io/library/ubuntu:26.04                                                    26.04          rol:herramienta digest:PENDIENTE
+autoconf-deb      win      herramienta  https://archive.ubuntu.com/ubuntu/pool/main/a/autoconf/autoconf_2.73-2_all.deb    2.73-2         rol:herramienta sha256:PENDIENTE
+cmake-linux       win      herramienta  https://github.com/Kitware/CMake/releases/download/v3.31.9/cmake-3.31.9-linux-x86_64.tar.gz 3.31.9 rol:herramienta sha256:PENDIENTE
+cmake-mac         mac      herramienta  https://github.com/Kitware/CMake/releases/download/v3.31.9/cmake-3.31.9-macos-universal.tar.gz 3.31.9 rol:herramienta sha256:PENDIENTE
+meson             win,mac  herramienta  https://github.com/mesonbuild/meson/releases/download/1.12.1/meson-1.12.1.tar.gz  1.12.1         rol:herramienta sha256:PENDIENTE
+ninja-mac         mac      herramienta  https://github.com/ninja-build/ninja/releases/download/v1.13.2/ninja-mac.zip       1.13.2         rol:herramienta sha256:PENDIENTE
+nasm              mac      herramienta  https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/nasm-2.16.03.tar.xz            2.16.03        rol:herramienta sha256:PENDIENTE
+pkgconf           mac      herramienta  https://distfiles.ariadne.space/pkgconf/pkgconf-2.5.1.tar.xz                      2.5.1          rol:herramienta sha256:PENDIENTE
+m4                mac      herramienta  https://ftp.gnu.org/gnu/m4/m4-1.4.20.tar.xz                                       1.4.20         rol:herramienta sha256:PENDIENTE
+autoconf          mac      herramienta  https://ftp.gnu.org/gnu/autoconf/autoconf-2.73.tar.xz                            2.73           rol:herramienta sha256:PENDIENTE
+automake          mac      herramienta  https://ftp.gnu.org/gnu/automake/automake-1.18.1.tar.xz                           1.18.1         rol:herramienta sha256:PENDIENTE
+libtool           mac      herramienta  https://ftp.gnu.org/gnu/libtool/libtool-2.5.4.tar.xz                              2.5.4          rol:herramienta sha256:PENDIENTE
+xcode             mac      referencia   /Applications/Xcode_16.4.app                                                      16.4           rol:herramienta
+
+# ------------------------------------------------------------- solo para las pruebas de la CI (nunca se distribuye)
+# Juez de Windows (FFMPEG-PROPIO.md, 5.5): el «8.1-full_build» de gyan, el mismo binario que VEATION lleva hoy.
+juez-win          win      herramienta  https://github.com/GyanD/codexffmpeg/releases/download/8.1/ffmpeg-8.1-full_build.zip 8.1 rol:prueba sha256:PENDIENTE contenido:ffmpeg-8.1-full_build/bin/ffmpeg.exe=d1e2a156261ecc675081943197a85f08f2868784a0af499171ede89353edad31
+# Intel SDE (puerta I). La URL del kit de Windows y si sus terminos permiten bajarlo desde la CI los
+# tiene que decidir una persona (FFMPEG-PROPIO.md, 2.5.3): mientras tanto la puerta I sale «NO MEDIDA».
+sde-win           win      herramienta  PENDIENTE                                                                         10.5           rol:prueba sha256:PENDIENTE opcional:si
+
+# --------------------------------------------------------------- referencias (no se descargan en build.yml)
+electron          ninguno  referencia   https://github.com/electron/electron.git                                          v44.7.0        rol:referencia chromium:152.0.7977.130
