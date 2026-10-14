@@ -1,0 +1,4 @@
+# Avisos («WARNING: ...») de configure de FFmpeg que se admiten (tools/puertas.mjs, puerta AV2).
+# Uno por linea; basta con un trozo literal del aviso. Vacio a proposito en veation.1: cualquier aviso
+# sale en rojo la primera vez y solo entra aqui tras revisarlo. «did not match anything» NUNCA se admite
+# (AV1): significa que un nombre de la lista blanca no existe en esta version de FFmpeg.

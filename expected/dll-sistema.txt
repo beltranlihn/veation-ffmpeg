@@ -1,0 +1,24 @@
+# DLL de Windows que ffmpeg.exe / ffprobe.exe pueden importar de forma ESTATICA (tools/pe-imports.mjs
+# --lista-sistema). Todas son del sistema operativo; ademas, cualquier api-ms-win-* o ext-ms-* (UCRT).
+# Fuera de la lista, a proposito:
+#   - mfplat.dll, mf.dll, mfreadwrite.dll, evr.dll: Media Foundation se carga en tiempo de ejecucion
+#     (si se importara, ffmpeg.exe no arrancaria en las ediciones N);
+#   - msvcrt.dll: el binario usa UCRT; si aparece, se estan mezclando dos CRT;
+#   - cualquier DLL de terceros (nvcuda, amfrt64, libmfx...): esas tambien se cargan en tiempo de ejecucion.
+# Una DLL nueva solo se anade tras comprobar que es del sistema (el job win-comportamiento lo mide
+# contra el System32 real con --system32).
+advapi32.dll
+bcrypt.dll
+cfgmgr32.dll
+gdi32.dll
+kernel32.dll
+ole32.dll
+oleaut32.dll
+psapi.dll
+setupapi.dll
+shell32.dll
+shlwapi.dll
+user32.dll
+version.dll
+winmm.dll
+ws2_32.dll
