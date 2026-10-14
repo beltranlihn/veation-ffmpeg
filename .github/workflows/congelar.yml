@@ -1,0 +1,42 @@
+# congelar.yml - calcula los valores PENDIENTE de versions.lock (commits, sha256, digest) con
+# tools/congelar.sh y los deja como artefacto para REVISARLOS y versionarlos a mano. No escribe en el
+# repositorio (permisos de solo lectura): un lock congelado es un cambio que firma una persona.
+#
+# Uso: Actions › congelar › Run workflow. Despues, bajar el artefacto «congelar» y en local:
+#   git apply congelar.patch && tools/comprobar-repo.sh --congelado && git commit
+name: congelar
+
+on:
+  workflow_dispatch:
+    inputs:
+      solo:
+        description: 'Solo esta pieza (vacio = todas las PENDIENTE)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  congelar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Calcular lo PENDIENTE
+        env:
+          SOLO: ${{ inputs.solo }}
+        run: |
+          if [ -n "$SOLO" ]; then tools/congelar.sh --solo "$SOLO"; else tools/congelar.sh; fi
+          git diff > congelar.patch
+          git diff --stat
+      - name: Comprobaciones con el lock nuevo (formato; PENDIENTE solo si quedan opcionales)
+        run: tools/comprobar-repo.sh
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: congelar
+          path: |
+            congelar.patch
+            versions.lock
+          retention-days: 30

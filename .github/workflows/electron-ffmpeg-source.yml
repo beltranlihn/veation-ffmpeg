@@ -1,0 +1,73 @@
+# electron-ffmpeg-source.yml - fuente de la ffmpeg.dll / libffmpeg.dylib (LGPL-2.1) de Electron
+# (FFMPEG-PROPIO.md, 2.5.7 y 4.7). VEATION pasa a Electron 44.7.0 (Chromium 152.0.7977.130).
+#
+# Lee el DEPS de Electron (chromium_version), el DEPS de Chromium (ffmpeg_revision), guarda una copia
+# PROPIA del arbol de chromium/third_party/ffmpeg en esa revision con los parches y los argumentos GN de
+# Electron, y (con publicar) crea la release electron-v<version>-ffmpeg-source. La etiqueta no empieza
+# por «v», asi que no dispara build.yml ni verificar-fuente.yml.
+name: electron-ffmpeg-source
+
+on:
+  workflow_dispatch:
+    inputs:
+      electron:
+        description: 'Version de Electron (vacio = la de versions.lock, fila electron)'
+        required: false
+        default: ''
+      chromium:
+        description: 'Version de Chromium esperada (vacio = la de versions.lock)'
+        required: false
+        default: ''
+      publicar:
+        description: 'Crear la release electron-v<version>-ffmpeg-source'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  fuente:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    outputs:
+      electron: ${{ steps.v.outputs.electron }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: v
+        env:
+          E_IN: ${{ inputs.electron }}
+          C_IN: ${{ inputs.chromium }}
+        run: |
+          E="${E_IN:-$(tools/lock.sh get electron ref)}"; E="${E#v}"
+          C="${C_IN:-$(tools/lock.sh get electron chromium)}"
+          echo "electron=$E" >> "$GITHUB_OUTPUT"
+          tools/electron-ffmpeg.sh "$E" "$C" out/electron
+          cat out/electron/electron-ffmpeg.json >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: electron-ffmpeg-source
+          path: out/electron
+          retention-days: 30
+
+  publicar:
+    if: inputs.publicar
+    needs: fuente
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: electron-ffmpeg-source
+          path: out
+      - name: Release electron-v<version>-ffmpeg-source (queda inmutable al publicarla)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          E: ${{ needs.fuente.outputs.electron }}
+        run: |
+          tag="electron-v$E-ffmpeg-source"
+          gh release create "$tag" out/*.tar.xz out/SHA256SUMS out/electron-ffmpeg.json --draft \
+            --target "$GITHUB_SHA" --title "FFmpeg de Electron $E (fuente LGPL-2.1)" --notes-file out/NOTAS.md
+          gh release edit "$tag" --draft=false

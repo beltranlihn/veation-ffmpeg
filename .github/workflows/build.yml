@@ -1,0 +1,403 @@
+# build.yml - compila FFmpeg 8.1.3 para Windows x64 y macOS (arm64 + x86_64 -> universal), pasa todas
+# las puertas, arma el paquete de fuente y los avisos y, en una etiqueta v*, publica la release
+# (FFMPEG-PROPIO.md, 2.5). Cada «uses:» va fijado por SHA completo (tools/comprobar-repo.sh lo exige).
+#
+#   fuentes ─┬─ win64 ── win-comportamiento ──┐
+#            ├─ mac (arm64, x86_64) ── mac-universal ── mac-corpus ─┤
+#            │                                     paridad ─────────┼─ paquete ─ release (solo v*)
+#            └─ licencias (ScanCode; en v* o a mano)  ──────────────┘
+#   mac-control-negativo: en paralelo; TIENE que salir rojo por las razones esperadas.
+name: build
+
+on:
+  workflow_dispatch:
+    inputs:
+      scancode:
+        description: 'Pasar tambien ScanCode (en una etiqueta v* se pasa siempre)'
+        type: boolean
+        default: false
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # Una release se compila SIEMPRE en frio (sin cache) y con las comprobaciones estrictas.
+  RELEASE: ${{ startsWith(github.ref, 'refs/tags/v') }}
+
+jobs:
+  fuentes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Lock congelado y receta coherente
+        run: |
+          tools/comprobar-repo.sh --congelado
+      - name: La etiqueta es la version de la receta
+        if: env.RELEASE == 'true'
+        run: |
+          . tools/lib.sh
+          test "$GITHUB_REF_NAME" = "v$(vf_version)" || { echo "etiqueta $GITHUB_REF_NAME != v$(vf_version)"; exit 1; }
+      - name: Descargar y verificar todo lo del lock (commits, sha256, firma de FFmpeg)
+        run: tools/fetch.sh sources
+      - name: Archivar (lo que se compila = lo que se publica como fuente)
+        run: tools/archivar.sh sources fuentes
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fuentes
+          path: fuentes
+          retention-days: 7
+          if-no-files-found: error
+
+  win64:
+    needs: fuentes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: fuentes
+          path: fuentes
+      - name: Fuentes y scripts al dia con el lock
+        run: |
+          tools/fuentes-comprobar.sh fuentes win
+          tools/aplicar-lock.sh --comprobar
+      - name: Liberar disco
+        run: win/util/free_disk_space.sh
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Exponer la cache de Actions a buildx (no se publica nada en ghcr)
+        if: env.RELEASE != 'true'
+        uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
+      - name: Imagenes (toolchain y bibliotecas; en frio unas 3 h)
+        env:
+          VF_FUENTES: ${{ github.workspace }}/fuentes
+          VF_CACHE: ${{ env.RELEASE == 'true' && 'none' || 'gha' }}
+        run: win/makeimage.sh win64 gpl 8.1
+      - name: FFmpeg 8.1.3 desde el tarball verificado
+        env:
+          VF_FUENTES: ${{ github.workspace }}/fuentes
+          VF_SALIDA: ${{ github.workspace }}/out/win
+        run: win/build.sh win64 gpl 8.1
+      - name: Puertas estaticas (wine) e importaciones, con su control rojo
+        run: tools/verificar-win.sh out/win
+      - name: Manifiesto y BUILDINFO
+        if: always()
+        run: |
+          IMG="$(cd win && source util/vars.sh win64 gpl 8.1 && echo "$IMAGE")"
+          {
+            docker run --rm --network=none "$IMG" bash -c 'x86_64-w64-mingw32-gcc --version | head -1; x86_64-w64-mingw32-ld --version | head -1; cmake --version | head -1; echo "meson $(meson --version)"; nasm -v; wine --version' || true
+            echo "imagen: $IMG $(cat out/win/imagen-id.txt 2>/dev/null)"
+            echo "ubuntu-base: $(tools/lock.sh get ubuntu-base digest)"
+            echo "crosstool-ng: $(tools/lock.sh get crosstool-ng commit)"
+          } > out/win/toolchain.txt
+          node tools/manifiesto.mjs --sistema win --info out/win/info --dir out/win --salida out/win/manifest-win.json
+          tools/buildinfo.sh win out/win/info out/win out/win/BUILDINFO-win.txt out/win/toolchain.txt
+          cp out/win/info/buildconf.txt out/win/buildconf-win.txt
+          cp out/win/configure.args out/win/configure-win.args
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: win64
+          path: out/win
+          retention-days: 7
+
+  win-comportamiento:
+    needs: win64
+    runs-on: windows-2025
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: win64
+          path: out
+      - name: Juez (el 8.1-full_build de gyan, fijado por sha256; nunca se distribuye)
+        shell: bash
+        run: |
+          url="$(tools/lock.sh get juez-win origen)"; sha="$(tools/lock.sh get juez-win sha256)"
+          curl -fsSL --retry 5 -o juez.zip "$url"
+          echo "$sha  juez.zip" | sha256sum -c -
+          contenido="$(tools/lock.sh get juez-win contenido)"
+          pwsh -NoProfile -Command "Expand-Archive -Path juez.zip -DestinationPath juez"
+          echo "${contenido#*=}  juez/${contenido%%=*}" | sha256sum -c -
+          # ruta de Windows (D:/a/...), no la de Git Bash: la usa node.exe
+          echo "JUEZ=$(pwd -W)/juez/${contenido%%=*}" >> "$GITHUB_ENV"
+      - name: ¿Hay Media Foundation en este runner?
+        shell: pwsh
+        run: |
+          if (Test-Path "$env:windir\System32\mfplat.dll") { "MF=1" >> $env:GITHUB_ENV; "Media Foundation: SI" }
+          else { "MF=0" >> $env:GITHUB_ENV; "Media Foundation: NO (el runner hace de edicion N: aac_mf tiene que fallar)" >> $env:GITHUB_STEP_SUMMARY }
+      - name: ff-checklist (todo lo de CPU, con juez; el hardware lo mide la fase 2 en el equipo de Beltran)
+        shell: bash
+        run: |
+          node tools/ff-checklist.mjs out/ffmpeg.exe --os win --solo-cpu --ci --mf "$MF" --juez "$JUEZ" \
+            --corpus-dir corpus-f --corpus-salida out/corpus-win.json --json out/checklist-win.json
+      - name: Importaciones contra el System32 real
+        shell: bash
+        run: |
+          node tools/pe-imports.mjs out/ffmpeg.exe --system32 --prohibir mfplat.dll,mf.dll,mfreadwrite.dll,evr.dll
+          node tools/pe-imports.mjs out/ffprobe.exe --system32 --prohibir mfplat.dll,mf.dll,mfreadwrite.dll,evr.dll
+      - name: Puerta I - CPU sin AVX2 (Intel SDE)
+        shell: bash
+        run: |
+          url="$(tools/lock.sh get sde-win origen)"
+          if [ "$url" = PENDIENTE ]; then
+            echo "Puerta I NO MEDIDA: la URL de Intel SDE y sus terminos los fija una persona (versions.lock, sde-win)" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          curl -fsSL --retry 5 -o sde.tar.xz "$url"
+          echo "$(tools/lock.sh get sde-win sha256)  sde.tar.xz" | sha256sum -c -
+          mkdir sde && tar -xf sde.tar.xz -C sde --strip-components=1
+          pwsh -NoProfile -File tools/sde.ps1 -Sde "$(pwd -W)/sde" -Ffmpeg "$(pwd -W)/out/ffmpeg.exe" -Cpu snb
+      - name: Microsoft Defender
+        shell: pwsh
+        run: |
+          $mp = "$env:ProgramFiles\Windows Defender\MpCmdRun.exe"
+          if (-not (Test-Path $mp)) { "Defender NO MEDIDO: no hay MpCmdRun.exe en este runner" >> $env:GITHUB_STEP_SUMMARY; exit 0 }
+          foreach ($f in @('ffmpeg.exe', 'ffprobe.exe')) {
+            & $mp -Scan -ScanType 3 -File (Join-Path $PWD "out\$f") -DisableRemediation
+            if ($LASTEXITCODE -ne 0) { throw "Defender marca $f (codigo $LASTEXITCODE)" }
+          }
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: win-comportamiento
+          path: |
+            out/corpus-win.json
+            out/checklist-win.json
+          retention-days: 7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: corpus-f
+          path: corpus-f
+          retention-days: 7
+
+  mac:
+    needs: fuentes
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 240
+    env:
+      A: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: fuentes
+          path: fuentes
+      - name: Xcode del lock
+        run: sudo xcode-select -s "$(tools/lock.sh get xcode origen)"
+      - name: Fuentes verificadas
+        run: tools/fuentes-comprobar.sh fuentes mac
+      - name: Herramientas fijadas (el unico paso con red)
+        run: mac/herramientas.sh
+      - name: Bibliotecas + FFmpeg + puertas del Mac (sin red)
+        run: mac/construir.sh --fuentes fuentes --salida "out/mac-$A"
+      - name: Puertas estaticas, enlazado, manifiesto y BUILDINFO
+        run: |
+          tools/info-binario.sh "out/mac-$A/ffmpeg" "out/mac-$A/info"
+          node tools/puertas.mjs --sistema "mac-$A" --info "out/mac-$A/info" --configure-out "out/mac-$A/configure.out" --json "out/mac-$A/puertas-estaticas.json"
+          node tools/enlazado.mjs --sistema mac --log "out/mac-$A/enlazado.log" --salida "out/mac-$A/linked-mac-$A.txt" --json "out/mac-$A/enlazado.json"
+          node tools/manifiesto.mjs --sistema "mac-$A" --info "out/mac-$A/info" --dir "out/mac-$A" --salida "out/mac-$A/manifest-mac-$A.json"
+          tools/buildinfo.sh "mac-$A" "out/mac-$A/info" "out/mac-$A" "out/mac-$A/BUILDINFO-mac-$A.txt" "out/mac-$A/herramientas.txt"
+          cp "out/mac-$A/info/buildconf.txt" "out/mac-$A/buildconf-mac-$A.txt"
+          cp "out/mac-$A/configure.args" "out/mac-$A/configure-mac-$A.args"
+      - name: Juez (FFmpeg de Homebrew; solo para comparar, nunca se distribuye)
+        run: brew install ffmpeg && echo "JUEZ=$(brew --prefix)/bin/ffmpeg" >> "$GITHUB_ENV" && "$(brew --prefix)/bin/ffmpeg" -hide_banner -version | head -1
+      - name: ff-checklist (VideoToolbox con -allow_sw 1 en la maquina virtual)
+        run: node tools/ff-checklist.mjs "out/mac-$A/ffmpeg" --os mac --ci --juez "$JUEZ" --json "out/mac-$A/checklist-mac-$A.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: mac-${{ matrix.arch }}
+          path: out/mac-${{ matrix.arch }}
+          retention-days: 7
+
+  mac-universal:
+    needs: mac
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: mac-arm64
+          path: out/mac-arm64
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: mac-x86_64
+          path: out/mac-x86_64
+      - name: Permisos (los artefactos no conservan el bit de ejecucion)
+        run: chmod 755 out/mac-*/ffmpeg out/mac-*/ffprobe out/mac-*/ffmpeg_g out/mac-*/ffprobe_g
+      - name: Universal (cada rodaja = el binario fino que paso las puertas)
+        run: |
+          sudo xcode-select -s "$(tools/lock.sh get xcode origen)"
+          mac/universal.sh out/mac-arm64 out/mac-x86_64 out/mac-universal
+          tools/info-binario.sh out/mac-universal/ffmpeg out/mac-universal/info
+          node tools/manifiesto.mjs --sistema mac-universal --info out/mac-universal/info --dir out/mac-universal --salida out/mac-universal/manifest-mac-universal.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mac-universal
+          path: out/mac-universal
+          retention-days: 7
+
+  mac-corpus:
+    needs: [mac-universal, win-comportamiento]
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: mac-universal
+          path: out/mac-universal
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: corpus-f
+          path: corpus-f
+      - name: El Mac decodifica el MISMO corpus que Windows
+        run: |
+          chmod 755 out/mac-universal/ffmpeg
+          node tools/corpus.mjs out/mac-universal/ffmpeg corpus-f --salida corpus-mac.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: corpus-mac
+          path: corpus-mac.json
+          retention-days: 7
+
+  mac-control-negativo:
+    # TIENE que salir rojo, y por las razones esperadas: si el FFmpeg dinamico de Homebrew pasara
+    # estas puertas, las puertas no medirian nada (FFMPEG-PROPIO.md, 5.6).
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: brew install ffmpeg
+      - name: Homebrew tiene que fallar en version (A1), enlazado (G1) y HAP (D3)
+        run: |
+          if node tools/ff-checklist.mjs "$(brew --prefix)/bin/ffmpeg" --os mac --ci --solo otool,hap,version --json negativo.json; then
+            echo "ROJO: el FFmpeg de Homebrew paso las puertas: no miden"; exit 1
+          fi
+          node -e '
+            const r = require("./negativo.json"); const mal = (p) => r.filas.some(([e, id]) => e === "FALLO" && (id === p || id.startsWith(p + ".")));
+            const faltan = ["A1", "G1", "D3"].filter(p => !mal(p));
+            if (faltan.length) { console.log("ROJO: no fallo por: " + faltan.join(" ")); process.exit(1); }
+            console.log("OK: el control negativo falla en A1, G1 y D3");'
+
+  licencias:
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.scancode
+    needs: fuentes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: fuentes
+          path: fuentes
+      - name: ScanCode contra la base revisada
+        run: tools/scancode.sh fuentes out/scancode ${{ startsWith(github.ref, 'refs/tags/v') && '--estricto' || '' }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: scancode
+          path: out/scancode/scancode-resumen.json
+          retention-days: 30
+
+  paridad:
+    needs: [win64, mac-universal, mac-corpus, win-comportamiento]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: '{win64,mac-arm64,mac-x86_64,win-comportamiento,corpus-mac}'
+          path: art
+      - name: Mismo FFmpeg en los tres binarios salvo lo propio de cada sistema
+        run: |
+          node tools/paridad.mjs art/win64/manifest-win.json art/mac-arm64/manifest-mac-arm64.json art/mac-x86_64/manifest-mac-x86_64.json \
+            --corpus art/win-comportamiento/corpus-win.json art/corpus-mac/corpus-mac.json --json paridad.json
+
+  paquete:
+    needs: [paridad, win-comportamiento, mac-universal, mac-control-negativo]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: '{fuentes,win64,mac-arm64,mac-x86_64,mac-universal}'
+          path: art
+      - name: Reunir lo de cada sistema
+        run: |
+          mkdir -p out/build out/manifiestos out/release
+          cp art/win64/{BUILDINFO-win.txt,linked-win.txt,configure-win.args,buildconf-win.txt} out/build/
+          for a in arm64 x86_64; do cp art/mac-$a/{BUILDINFO-mac-$a.txt,linked-mac-$a.txt,configure-mac-$a.args,buildconf-mac-$a.txt} out/build/; done
+          cp art/win64/manifest-win.json art/mac-arm64/manifest-mac-arm64.json art/mac-x86_64/manifest-mac-x86_64.json art/mac-universal/manifest-mac-universal.json out/manifiestos/
+      - name: Textos de licencia del fuente exacto (en una release, todos revisados)
+        run: node tools/avisos.mjs textos --fuentes art/fuentes --salida out/avisos ${{ startsWith(github.ref, 'refs/tags/v') && '--estricto' || '' }}
+      - name: Paquete de fuente completo
+        run: tools/fuentes.sh art/fuentes out/build out/avisos out/release | tee out/fuentes.log
+      - name: FFMPEG-NOTICES.txt y SOURCE.txt
+        run: |
+          sha="$(tail -1 out/fuentes.log | awk '$1 == "sha256" { print $2 }')"
+          node tools/avisos.mjs notices --avisos out/avisos --manifiestos out/manifiestos \
+            --fuente "$(ls out/release/*-source.tar.xz* | head -1)" --sha-entero "$sha" --salida out/release
+      - name: Zips, manifest.json y SHA256SUMS
+        run: |
+          tools/empaquetar.sh art/win64 art/mac-universal out/build out/release
+          node tools/avisos.mjs manifiesto --release out/release --manifiestos out/manifiestos --notas out/NOTAS.md
+          cat out/release/SHA256SUMS
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release
+          path: |
+            out/release
+            out/NOTAS.md
+          retention-days: 7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: avisos-revision
+          path: out/avisos/revision.txt
+          retention-days: 30
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [paquete, licencias]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+          path: out
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: 'out/release/*'
+      - name: Publicar como pre-release (al pasar de borrador a publicada queda inmutable)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" out/release/* --draft --prerelease --verify-tag \
+            --title "FFmpeg $GITHUB_REF_NAME" --notes-file out/NOTAS.md
+          gh release edit "$GITHUB_REF_NAME" --draft=false

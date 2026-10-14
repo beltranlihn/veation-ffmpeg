@@ -1,0 +1,167 @@
+# verificar-fuente.yml - el paquete de fuente de una release RECONSTRUYE sus binarios, y le falta algo
+# -> la reconstruccion FALLA (FFMPEG-PROPIO.md, 2.5.6).
+#
+#   1. baja SOLO el paquete de fuente de la release (y SHA256SUMS/SOURCE.txt para verificarlo);
+#   2. reconstruye desde el: el Mac sin red (sandbox-exec, tras instalar las herramientas fijadas);
+#      Windows con las etapas de bibliotecas y la de FFmpeg sin red y la toolchain desde toolchain-win/;
+#   3. compara -version, -buildconf, -encoders y -decoders con el BUILDINFO de la release;
+#   4. control negativo: sin el archivo de snappy, la reconstruccion tiene que fallar, y por eso.
+# Se lanza al publicar una release v*, a mano, y una vez al mes (el control negativo y la recomprobacion
+# de lo congelado). OJO: GitHub desactiva los «schedule» tras 60 dias sin actividad en el repositorio.
+name: verificar-fuente
+
+on:
+  release:
+    types: [published]
+  schedule:
+    - cron: '17 5 3 * *'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Etiqueta (vacio = la ultima release v*)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  elegir:
+    if: github.event_name != 'release' || startsWith(github.event.release.tag_name, 'v')
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.t.outputs.tag }}
+    steps:
+      - id: t
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ENTRADA: ${{ inputs.tag || github.event.release.tag_name || '' }}
+        run: |
+          tag="$ENTRADA"
+          [ -n "$tag" ] || tag="$(gh release list --limit 50 --json tagName --jq '[.[] | select(.tagName | startswith("v"))][0].tagName')"
+          [ -n "$tag" ] || { echo "no hay ninguna release v*"; exit 1; }
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"; echo "Etiqueta: $tag" >> "$GITHUB_STEP_SUMMARY"
+
+  recomprobar-lock:
+    # Lo ya congelado sigue siendo cierto hoy (ninguna etiqueta movida, ningun tarball resubido).
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: tools/congelar.sh --comprobar-congelados
+
+  mac:
+    needs: elegir
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 240
+    env:
+      A: ${{ matrix.arch }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: tools
+      - name: Bajar y verificar el paquete de fuente
+        run: tools/paquete-bajar.sh "${{ needs.elegir.outputs.tag }}" v
+      - name: Herramientas fijadas (con red, ANTES del aislamiento)
+        working-directory: v/paquete/receta
+        run: |
+          sudo xcode-select -s "$(tools/lock.sh get xcode origen)"
+          mac/herramientas.sh
+      - name: Reconstruir SIN RED desde el paquete
+        working-directory: v/paquete/receta
+        run: |
+          sandbox-exec -p '(version 1)(allow default)(deny network*)' \
+            mac/construir.sh --fuentes .. --salida "$PWD/../../salida"
+      - name: Igual que la release
+        working-directory: v/paquete/receta
+        run: |
+          tools/info-binario.sh ../../salida/ffmpeg ../../salida/info
+          tools/comparar-buildinfo.sh "../build/BUILDINFO-mac-$A.txt" ../../salida/info
+
+  win:
+    needs: elegir
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: tools
+      - name: Bajar y verificar el paquete de fuente
+        run: tools/paquete-bajar.sh "${{ needs.elegir.outputs.tag }}" v
+      - run: v/paquete/receta/win/util/free_disk_space.sh
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Reconstruir desde el paquete (en frio, sin cache)
+        working-directory: v/paquete/receta
+        env:
+          VF_CACHE: none
+        run: |
+          export VF_FUENTES="$(cd .. && pwd)"
+          win/makeimage.sh win64 gpl 8.1
+          VF_SALIDA="$PWD/../../salida" win/build.sh win64 gpl 8.1
+      - name: Igual que la release
+        working-directory: v/paquete/receta
+        run: |
+          IMG="$(cd win && source util/vars.sh win64 gpl 8.1 && echo "$TARGET_IMAGE")"
+          docker run --rm --network=none -u "$(id -u):$(id -g)" -e HOME=/tmp -e WINEDEBUG=-all \
+            -v "$PWD":/w -v "$PWD/../../salida":/d -w /w "$IMG" bash tools/info-binario.sh /d/ffmpeg.exe /d/info --ejecutor wine
+          tools/comparar-buildinfo.sh ../build/BUILDINFO-win.txt ../../salida/info
+
+  control-negativo:
+    needs: elegir
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: tools
+      - run: tools/paquete-bajar.sh "${{ needs.elegir.outputs.tag }}" v
+      - name: Quitar snappy del paquete
+        run: rm -v v/paquete/bibliotecas/snappy-*
+      - name: La comprobacion de fuentes tiene que fallar, y por snappy
+        working-directory: v/paquete/receta
+        run: |
+          if tools/fuentes-comprobar.sh .. 2> err.txt; then echo "ROJO: no detecto que falta snappy"; exit 1; fi
+          grep -q snappy err.txt && echo "OK: falla porque falta snappy"
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: La descarga de Windows (sin red) tiene que fallar, y por snappy
+        working-directory: v/paquete/receta
+        env:
+          VF_CACHE: none
+        run: |
+          export VF_FUENTES="$(cd .. && pwd)"
+          if win/makeimage.sh win64 gpl 8.1 > log.txt 2>&1; then echo "ROJO: la reconstruccion siguio sin snappy"; exit 1; fi
+          grep -q 'vf_extraer: .*snappy' log.txt && echo "OK: falla en la extraccion de snappy" || { tail -40 log.txt; exit 1; }
+
+  control-negativo-mac:
+    needs: elegir
+    runs-on: macos-15
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: tools
+      - run: tools/paquete-bajar.sh "${{ needs.elegir.outputs.tag }}" v
+      - run: rm -v v/paquete/bibliotecas/snappy-*
+      - name: La reconstruccion del Mac tiene que fallar, y por snappy
+        working-directory: v/paquete/receta
+        run: |
+          sudo xcode-select -s "$(tools/lock.sh get xcode origen)"
+          if mac/deps.sh --fuentes .. --solo snappy 2> err.txt; then echo "ROJO: compilo sin el fuente de snappy"; exit 1; fi
+          grep -q snappy err.txt && echo "OK: falla porque falta snappy"

@@ -1,0 +1,36 @@
+# comprobar.yml - lo que se comprueba sin compilar nada, en cada push y pull request (unos segundos):
+# sintaxis, «uses:» fijados por SHA, lock y piezas coherentes, scripts de win/ al dia con el lock y
+# toda modificacion de un fuente inventariada (tools/comprobar-repo.sh).
+name: comprobar
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  comprobar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: tools/comprobar-repo.sh
+      - name: Las puertas saben fallar (controles rojos que no necesitan compilar)
+        run: |
+          # piezas.conf: una opcion fuera de orden tiene que salir roja
+          cp piezas.conf /tmp/piezas.bak
+          sed -i '0,/^--disable-encoders$/s//--enable-encoder=hap\n--disable-encoders/' piezas.conf
+          if tools/piezas.sh comprobar 2>/dev/null; then echo "ROJO: piezas.sh no caza --enable-encoder antes de --disable-encoders"; exit 1; fi
+          cp /tmp/piezas.bak piezas.conf
+          # modificaciones: un sed nuevo sin inventariar tiene que salir rojo
+          echo "    sed -i 's/a/b/' x.c" >> win/scripts.d/50-snappy.sh
+          if tools/modificaciones.sh 2>/dev/null; then echo "ROJO: modificaciones.sh no caza un sed sin inventariar"; exit 1; fi
+          git checkout -- win/scripts.d/50-snappy.sh
+          # lock: xz 5.6.1 tiene que salir rojo
+          sed -i -E '/^xz /s/ 5\.8\.4 / 5.6.1 /' versions.lock
+          if tools/lock.sh comprobar --formato 2>/dev/null; then echo "ROJO: lock.sh no caza xz 5.6.1"; exit 1; fi
+          git checkout -- versions.lock
+          echo "OK: los tres controles rojos salen rojos"
