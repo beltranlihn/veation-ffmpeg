@@ -69,9 +69,9 @@ export function parseFiltros(texto) {
   for (const l of texto.split(/\r?\n/)) { const m = /^\s[T.][S.][C.]?\s+(\S+)\s+\S*->\S*/.exec(l); if (m) s.add(m[1]); }
   return s;
 }
-export function parseMuxDemux(texto) {          // -muxers / -demuxers: «  E mov  ...» o «  D mov ...»
+export function parseMuxDemux(texto) {          // -muxers / -demuxers: columnas fijas « DEd nombre»
   const s = new Set();
-  for (const l of texto.split(/\r?\n/)) { const m = /^\s+[DE]d?\s+(\S+)\s/.exec(l); if (m) for (const n of m[1].split(',')) s.add(n); }
+  for (const l of texto.split(/\r?\n/)) { const m = /^ ([D ])([E ])([d ]) +(\S+)/.exec(l); if (m && (m[1] === 'D' || m[2] === 'E')) for (const n of m[4].split(',')) s.add(n); }
   return s;
 }
 export function parseProtocolos(texto) {

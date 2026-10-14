@@ -1,0 +1,21 @@
+# paridad-permitida.txt - lo UNICO que puede diferir entre el binario de Windows y el del Mac
+# (FFMPEG-PROPIO.md, 2.5.5). Lo usa tools/paridad.mjs.
+#
+# Formato: <categoria> <lado> <patron> [<patron> ...]     (* vale cualquier cosa; «-» y «_» se igualan)
+#   categoria: encoders decoders filters muxers demuxers protocols bsfs hwaccels
+#   lado: win (solo en Windows) o mac (solo en el Mac)
+# Las lineas de -buildconf no van aqui: la diferencia permitida son exactamente las secciones de
+# configure propias de cada sistema en piezas.conf, y paridad.mjs las deduce de alli.
+# Una diferencia que no case con nada pone la puerta en ROJO; solo se anade aqui tras revisarla.
+
+encoders  win  *_nvenc *_amf *_qsv *_mf
+encoders  mac  *_videotoolbox *_at
+
+decoders  win  *_cuvid *_qsv *_amf
+decoders  mac  *_at
+
+filters   win  *_cuda hwupload_cuda *_qsv *_amf *_d3d11 *_d3d11va *_d3d12 *_d3d12va *_dxva2
+filters   mac  *_vt *_videotoolbox
+
+hwaccels  win  cuda d3d11va d3d12va dxva2 qsv
+hwaccels  mac  videotoolbox
