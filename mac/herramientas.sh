@@ -27,7 +27,7 @@ bajar() {
     case "$sha" in PENDIENTE|"") vf_die "«$pieza» sin sha256 en el lock (congelar primero)" ;; esac
     destino="$VF_DESCARGAS/$(basename "$url")"
     if [ ! -f "$destino" ] || [ "$(vf_sha256 "$destino")" != "$sha" ]; then
-        curl -fsSL --retry 5 --retry-delay 5 -o "$destino.part" "$url"
+        vf_curl -o "$destino.part" "$url"
         mv "$destino.part" "$destino"
     fi
     [ "$(vf_sha256 "$destino")" = "$sha" ] || vf_die "«$pieza»: el sha256 de $(basename "$url") no es el del lock"

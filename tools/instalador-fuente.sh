@@ -45,7 +45,7 @@ for pieza in $(vf_lock_piezas "" instalador); do
             sha="$(vf_lock_campo "$pieza" sha256)"
             case "$sha" in PENDIENTE|"") vf_die "«$pieza» sin sha256 (congelar primero)" ;; esac
             a="$P/$(basename "$url")"
-            curl -fsSL --retry 5 --retry-delay 5 -o "$a" "$url"
+            vf_curl -o "$a" "$url"
             [ "$(vf_sha256 "$a")" = "$sha" ] || vf_die "«$pieza»: el sha256 de $(basename "$a") no es el del lock"
             case "$a" in
                 *.7z)

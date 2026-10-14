@@ -103,7 +103,7 @@ congelar_archivo() {
     [ "$url" = PENDIENTE ] && { vf_log "AVISO: «$pieza» sin URL (lo tiene que fijar una persona)"; return 0; }
     hace_falta "$pieza" sha256 || return 0
     archivo="$TMP/$(basename "$url")"
-    curl -fsSL --retry 5 --retry-delay 5 -o "$archivo" "$url"
+    vf_curl -o "$archivo" "$url"
     gpg="$(vf_lock_campo "$pieza" gpg)"
     if [ -n "$gpg" ]; then
         firma="$(vf_lock_campo "$pieza" firma)"; clave="$(vf_lock_campo "$pieza" clave)"

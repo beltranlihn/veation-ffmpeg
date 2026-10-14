@@ -12,6 +12,16 @@ VF_PIEZAS="${VF_PIEZAS:-$VF_RAIZ/piezas.conf}"
 vf_log() { printf '[%s] %s\n' "$(basename "$0")" "$*" >&2; }
 vf_die() { printf '[%s] ERROR: %s\n' "$(basename "$0")" "$*" >&2; exit 1; }
 
+# Descarga con reintentos de verdad. «--retry» solo no reintenta un corte a mitad de transferencia
+# (curl 56, «Recv failure»): asi se cayo «congelar» con ftp.gnu.org, tras 10 minutos con la conexion
+# colgada. --retry-all-errors reintenta cualquier fallo y --speed-limit/--speed-time cortan una
+# transferencia parada (menos de 1 KB/s durante 60 s) para reintentarla en vez de esperar al TCP.
+# La identidad no depende de esto: quien llama comprueba el sha256 o la firma de lo que baja.
+vf_curl() {
+    curl -fsSL --connect-timeout 30 --speed-limit 1024 --speed-time 60 \
+        --retry 5 --retry-delay 10 --retry-all-errors "$@"
+}
+
 # SHA-256 de un archivo, igual en Linux, macOS y Git Bash.
 vf_sha256() {
     if command -v sha256sum >/dev/null 2>&1; then
@@ -124,11 +134,11 @@ vf_extraer() {
 verificar_firma() {
     local archivo="$1" url="$2" huella="$3" clave="${4:-}" firma gnupg estado
     case "$url" in *.sig) firma="$archivo.sig" ;; *) firma="$archivo.asc" ;; esac
-    curl -fsSL --retry 5 --retry-delay 5 -o "$firma" "$url"
+    vf_curl -o "$firma" "$url"
     gnupg="$(mktemp -d)"; chmod 700 "$gnupg"
     gpg --homedir "$gnupg" --batch --keyserver hkps://keyserver.ubuntu.com --recv-keys "$huella" >/dev/null 2>&1 \
         || gpg --homedir "$gnupg" --batch --keyserver hkps://keys.openpgp.org --recv-keys "$huella" >/dev/null 2>&1 \
-        || { [ -n "$clave" ] && curl -fsSL --retry 5 "$clave" | gpg --homedir "$gnupg" --batch --import >/dev/null 2>&1; } \
+        || { [ -n "$clave" ] && vf_curl -o "$gnupg/clave.asc" "$clave" && gpg --homedir "$gnupg" --batch --import "$gnupg/clave.asc" >/dev/null 2>&1; } \
         || true
     if ! gpg --homedir "$gnupg" --batch --with-colons --fingerprint "$huella" 2>/dev/null | grep -q "^fpr:::::::::$huella:"; then
         rm -rf "$gnupg"

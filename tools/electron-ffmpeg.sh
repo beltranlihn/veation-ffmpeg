@@ -28,13 +28,15 @@ export GIT_TERMINAL_PROMPT=0
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 
 # 1. Electron -> Chromium
-curl -fsSL --retry 5 "https://raw.githubusercontent.com/electron/electron/v$E/DEPS" -o "$TMP/electron-DEPS"
+vf_curl "https://raw.githubusercontent.com/electron/electron/v$E/DEPS" -o "$TMP/electron-DEPS"
 cv="$(tr -d ' \n' < "$TMP/electron-DEPS" | grep -o "'chromium_version':'[0-9.]*'" | head -1 | cut -d"'" -f4)"
 [ "$cv" = "$C" ] || vf_die "Electron v$E usa Chromium «$cv», no $C"
 vf_log "Electron v$E -> Chromium $C"
 
 # 2. Chromium -> revision de third_party/ffmpeg
-curl -fsSL --retry 5 "https://chromium.googlesource.com/chromium/src/+/refs/tags/$C/DEPS?format=TEXT" | base64 -d > "$TMP/chromium-DEPS"
+# a archivo y despues base64: con --retry-all-errors, un reintento por una tuberia repetiria bytes
+vf_curl "https://chromium.googlesource.com/chromium/src/+/refs/tags/$C/DEPS?format=TEXT" -o "$TMP/chromium-DEPS.b64"
+base64 -d < "$TMP/chromium-DEPS.b64" > "$TMP/chromium-DEPS"
 rev="$(grep -o "'ffmpeg_revision': *'[0-9a-f]\{40\}'" "$TMP/chromium-DEPS" | grep -o '[0-9a-f]\{40\}' | head -1 || true)"
 if [ -z "$rev" ]; then   # formato antiguo: la revision escrita en la propia entrada
     rev="$(tr -d ' \n' < "$TMP/chromium-DEPS" | grep -o "/chromium/third_party/ffmpeg.git'+'@'+'[0-9a-f]\{40\}" | grep -o '[0-9a-f]\{40\}$' | head -1 || true)"
