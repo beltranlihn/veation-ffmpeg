@@ -116,7 +116,9 @@ El Mac se compila **de forma nativa en cada arquitectura** (arm64 en `macos-15`,
 - Las dos rodajas se prueban: `ff-checklist` corre nativo en cada runner; el corpus de Windows se
   decodifica con el universal en `macos-15` **y** en `macos-15-intel` (paridad P6 por arquitectura); y la
   puerta F de la rodaja x86_64 (decodificar igual que el juez) se pasa en `macos-15` con Rosetta, porque
-  el FFmpeg de Homebrew que hace de juez no tiene bottle para Intel.
+  el FFmpeg de Homebrew que hace de juez no tiene bottle para Intel. El juez es la fórmula versionada
+  `ffmpeg@8` (la rama 8.1 del candidato, como el 8.1 de gyan en Windows; `tools/juez-mac.sh` lo exige):
+  la fórmula `ffmpeg` ya es 9.0.x y decodifica distinto por razones ajenas a la receta.
 - `manifest.json` da el `buildconf_sha256` **por arquitectura**: `scripts/comprobar-ffmpeg.mjs` de
   VEATION tiene que elegir el de `process.arch`.
 
@@ -170,7 +172,7 @@ Lo que se ha comprobado leyendo el fuente de cada versión del lock, pero que so
   Mac); el shim `libstdc++.tbd` y `STL_LIBS=-lc++` en zimg; que el enlazador de Xcode 16.4
   avise de un objeto con `minos` 14.0 enlazado a 13.0 (si no, `mac/ffmpeg.sh` para y lo dice); `sandbox-exec`
   sin red también en `build`; que `macos-15` tenga Rosetta (si no, la F de la rodaja x86_64 sale NO MEDIDA)
-  y que Homebrew siga teniendo bottle de ffmpeg para arm64.
+  y que Homebrew siga teniendo bottle de `ffmpeg@8` para arm64.
 - **Workflows.** `verificar-fuente` llamado desde `build` con el artefacto `release` de la misma
   ejecución; que sus controles negativos salgan verdes por su motivo exacto (snappy en las tres
   extracciones, gcc en crosstool-ng) y rojos si el fallo es otro (para verlo: una vez con el paquete

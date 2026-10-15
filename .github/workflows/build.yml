@@ -229,14 +229,15 @@ jobs:
           tools/buildinfo.sh "mac-$A" "out/mac-$A/info" "out/mac-$A" "out/mac-$A/BUILDINFO-mac-$A.txt" "out/mac-$A/herramientas.txt"
           cp "out/mac-$A/info/buildconf.txt" "out/mac-$A/buildconf-mac-$A.txt"
           cp "out/mac-$A/configure.args" "out/mac-$A/configure-mac-$A.args"
-      # El juez es el FFmpeg de Homebrew, que solo tiene bottle para Apple Silicon (formulae.brew.sh,
-      # 2026-10-14: ffmpeg 9.0.2 sin bottle para macOS Intel; en macos-15-intel lo compilaria desde fuente
-      # dentro de este job, con la release esperando a una herramienta de prueba sin fijar). En x86_64,
-      # ff-checklist corre NATIVO sin juez (todo salvo la puerta F) y la F de esa rodaja la pasa
+      # El juez es el FFmpeg 8.1 de Homebrew (formula versionada ffmpeg@8, la misma rama que el candidato:
+      # tools/juez-mac.sh lo exige), que solo tiene bottle para Apple Silicon (formulae.brew.sh,
+      # 2026-10-15: ffmpeg@8 8.1.3 sin bottle para macOS Intel; en macos-15-intel lo compilaria desde
+      # fuente dentro de este job, con la release esperando a una herramienta de prueba sin fijar). En
+      # x86_64, ff-checklist corre NATIVO sin juez (todo salvo la puerta F) y la F de esa rodaja la pasa
       # mac-x86_64-juez en el runner arm64, con Rosetta; mac-corpus la cruza ademas con Windows (P6).
-      - name: Juez (FFmpeg de Homebrew; solo para comparar, nunca se distribuye)
+      - name: Juez (FFmpeg 8.1 de Homebrew; solo para comparar, nunca se distribuye)
         if: matrix.arch == 'arm64'
-        run: brew install ffmpeg && echo "JUEZ=$(brew --prefix)/bin/ffmpeg" >> "$GITHUB_ENV" && "$(brew --prefix)/bin/ffmpeg" -hide_banner -version | head -1
+        run: tools/juez-mac.sh
       - name: ff-checklist (VideoToolbox con -allow_sw 1 en la maquina virtual)
         run: |
           if [ "$A" = arm64 ]; then
@@ -253,7 +254,7 @@ jobs:
 
   mac-x86_64-juez:
     # La puerta F (decodificar igual que el juez) de la rodaja x86_64, en el runner arm64 con Rosetta y
-    # contra el FFmpeg de Homebrew con bottle. Sin Rosetta en el runner, NO MEDIDA (instalarla acepta la
+    # contra el FFmpeg 8.1 de Homebrew (ffmpeg@8) con bottle. Sin Rosetta en el runner, NO MEDIDA (instalarla acepta la
     # licencia de Apple: lo decide una persona); la decodificacion nativa en Intel la sigue midiendo P6.
     needs: mac
     runs-on: macos-15
@@ -275,9 +276,9 @@ jobs:
             echo "Puerta F de la rodaja x86_64 NO MEDIDA: este runner no tiene Rosetta" | tee -a "$GITHUB_STEP_SUMMARY"
             echo "hay=0" >> "$GITHUB_OUTPUT"
           fi
-      - name: Juez (FFmpeg de Homebrew)
+      - name: Juez (FFmpeg 8.1 de Homebrew)
         if: steps.rosetta.outputs.hay == '1'
-        run: brew install ffmpeg && echo "JUEZ=$(brew --prefix)/bin/ffmpeg" >> "$GITHUB_ENV"
+        run: tools/juez-mac.sh
       - name: F con la rodaja x86_64 (Rosetta) contra el juez
         if: steps.rosetta.outputs.hay == '1'
         run: |

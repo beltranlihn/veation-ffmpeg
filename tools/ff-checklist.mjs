@@ -6,7 +6,7 @@
    Uso:  node ff-checklist.mjs <ffmpeg candidato> [opciones]
      --os win|mac              sistema (por defecto, el de esta maquina)
      --juez <ffmpeg>           FFmpeg de banco que NO se distribuye: fabrica el material y decodifica en
-                               paralelo para comparar (Windows: el «8.1-full_build» de gyan; Mac: Homebrew)
+                               paralelo para comparar (Windows: el «8.1-full_build» de gyan; Mac: ffmpeg@8 de Homebrew)
      --sin-juez                sin FFmpeg de banco aunque haya uno instalado (F sale SALTADO)
      --probe <ffprobe>         ffprobe para juzgar las salidas (por defecto el del juez, si no el hermano
                                del candidato)
