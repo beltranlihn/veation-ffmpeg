@@ -217,7 +217,17 @@ if (toca('D5')) {
   /* lo prohibido FALLA de verdad (no basta con que no salga en la lista) */
   const debeFallar = (id, txt, args, re) => { const r = ff(['-loglevel', 'error', ...args]); out(r.code !== 0 && re.test(r.err) ? 'OK' : 'FALLO', id, txt + (r.code === 0 ? ' — ¡FUNCIONO!' : '')); };
   debeFallar('D5.1', 'prores_ks rechazado', ['-f', 'lavfi', '-i', 'testsrc2=s=320x240:d=0.1', '-c:v', 'prores_ks', '-f', 'null', '-'], /Unknown encoder|not found/i);
-  debeFallar('D5.2', 'aac propio rechazado', ['-f', 'lavfi', '-i', 'sine=d=0.1', '-c:a', 'aac', '-f', 'null', '-'], /Unknown encoder|not found/i);
+  /* «-c:a aac» NO tiene por que fallar: si no hay un codificador llamado «aac», ffmpeg busca el codec
+     «aac» y toma el que haya (fftools/ffmpeg_opt.c, find_codec: «Matched encoder 'aac_mf' for codec
+     'aac'»), es decir, el AAC del sistema. Lo que no puede pasar es que el codificador usado sea el
+     propio de FFmpeg: el mapeo de flujos (nivel info) dice cual es, «aac (native)» con el de FFmpeg y
+     «aac (aac_mf)» / «aac (aac_at)» con el del sistema. La primera version exigia «Unknown encoder» y
+     salia en rojo con el binario bueno (aac_mf existe); contra el de gyan, que lleva el aac propio,
+     esta comprobacion sale en rojo. */
+  { const r = ff(['-f', 'lavfi', '-i', 'sine=d=0.1', '-c:a', 'aac', '-f', 'null', '-']);
+    const usado = (/-> aac \(([\w-]+)\)/.exec(r.err) || [])[1];
+    const ok = usado !== 'native' && (r.code !== 0 || !!usado);
+    out(ok ? 'OK' : 'FALLO', 'D5.2', '«-c:a aac» no usa el aac propio de FFmpeg' + (usado ? ` — usa ${usado}` : r.code !== 0 ? ' — no hay ningun AAC: ' + ultima(r.err) : ' — no se sabe cual usa')); }
   const r = ff(['-loglevel', 'warning', '-i', 'http://127.0.0.1:9/x.mp4', '-f', 'null', '-']);
   out(r.code !== 0 && /Protocol not found/i.test(r.err) && !/Connection refused|Connection to tcp/i.test(r.err) ? 'OK' : 'FALLO', 'D5.3', 'http: Protocol not found (sin intentar conectar)' + (r.code === 0 ? ' — FUNCIONO' : ' — ' + ultima(r.err)));
 }
