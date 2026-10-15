@@ -35,6 +35,13 @@ const runtimeDe = (clave) => new Set((piezas.pares('enlazado-runtime-win').find(
 const runtimeGcc = runtimeDe('gcc'), runtimeProhibido = runtimeDe('prohibido');
 if (sistema === 'win' && (!runtimeGcc.size || !runtimeProhibido.size)) { console.error('piezas.conf: falta [enlazado-runtime-win] (gcc y prohibido)'); process.exit(2); }
 
+// L0: la traza tiene que ser SOLO lo que el enlazador escribe por stdout. Si lleva sus mensajes de
+// stderr («ld: warning: ...»), las lineas pueden estar partidas a mitad de ruta y el reparto de abajo
+// perderia archivos sin decir nada (asi salio la de x86_64 de la build 38704005601, con
+// «.../MacOSX.platform/Developerld: warning: ...»). build.sh y mac/ffmpeg.sh los separan.
+const mezcla = fs.readFileSync(log, 'utf8').split(/\r?\n/).filter(l => /\bld(\.bfd|64)?: (warning|error)\b|: warning: /.test(l));
+if (mezcla.length) { r.rojo('L0', `la traza ${log} lleva ${mezcla.length} mensaje(s) de stderr mezclados, p. ej. «${mezcla[0].slice(0, 160)}»`); r.terminar(arg('--json')); process.exit(); }
+
 // Extrae rutas de archivo de cada linea de la traza: «/ruta/lib.a(miembro.o)», «(/ruta/lib.a)miembro.o»,
 // «/ruta/objeto.o», «libavcodec/libavcodec.a», «/ruta/libSystem.tbd», «-lfoo (/ruta/libfoo.a)».
 const archivos = new Set();

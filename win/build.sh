@@ -56,11 +56,13 @@ cat <<'EOF' >"$BUILD_SCRIPT"
 
     make -j$(nproc) V=1
 
-    # Reenlazado con traza: los objetos ya estan, solo se repite el enlace de los dos programas.
+    # Reenlazado con traza: los objetos ya estan, solo se repite el enlace de los dos programas. La
+    # traza (stdout, con bufer) y los avisos del enlazador (stderr) van a archivos distintos: juntos se
+    # cortaban a mitad de ruta (visto en el Mac, mac/ffmpeg.sh) y tools/enlazado.mjs perdia archivos.
     LDEXE="$(sed -n 's/^LDEXEFLAGS=//p' ffbuild/config.mak)"
     rm -f ffmpeg_g.exe ffprobe_g.exe ffmpeg.exe ffprobe.exe
-    make V=1 LDEXEFLAGS="$LDEXE -Wl,--trace" ffmpeg_g.exe ffprobe_g.exe > /ffbuild/enlazado.log 2>&1 \
-        || { tail -n 200 /ffbuild/enlazado.log; exit 1; }
+    make V=1 LDEXEFLAGS="$LDEXE -Wl,--trace" ffmpeg_g.exe ffprobe_g.exe > /ffbuild/enlazado.log 2> /ffbuild/enlazado-avisos.log \
+        || { tail -n 100 /ffbuild/enlazado.log /ffbuild/enlazado-avisos.log; exit 1; }
     make V=1 ffmpeg.exe ffprobe.exe
 
     cp ffmpeg.exe ffprobe.exe ffmpeg_g.exe ffprobe_g.exe COPYING.GPLv3 /ffbuild/
@@ -73,7 +75,7 @@ docker run --rm -i $TTY_ARG --network=none "${UIDARGS[@]}" -e TARBALL_REL="$TARB
     "$IMAGE" bash /build.sh
 
 mkdir -p "$VF_SALIDA"
-for f in ffmpeg.exe ffprobe.exe ffmpeg_g.exe ffprobe_g.exe COPYING.GPLv3 configure.args configure.out config.log enlazado.log; do
+for f in ffmpeg.exe ffprobe.exe ffmpeg_g.exe ffprobe_g.exe COPYING.GPLv3 configure.args configure.out config.log enlazado.log enlazado-avisos.log; do
     cp "ffbuild/$f" "$VF_SALIDA/$f"
 done
 docker image inspect -f '{{.Id}}' "$IMAGE" > "$VF_SALIDA/imagen-id.txt"

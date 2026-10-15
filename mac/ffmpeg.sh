@@ -56,11 +56,14 @@ cp ffbuild/config.log "$SALIDA/config.log"
 
 env -u CFLAGS -u CXXFLAGS -u LDFLAGS make -j"$NPROC" V=1
 
-# Reenlazado con traza
+# Reenlazado con traza. La traza (-Wl,-t) sale por stdout, con bufer; los avisos del enlazador, por
+# stderr y sin el. Juntos en un archivo se cortaban a mitad de ruta (la build 38704005601 en x86_64:
+# «.../MacOSX.platform/Developerld: warning: ...»), y una ruta partida se perdia sin que la puerta L1
+# se enterase. Van a dos archivos: enlazado.log (lo que lee tools/enlazado.mjs) y enlazado-avisos.log.
 LDEXE="$(sed -n 's/^LDEXEFLAGS=//p' ffbuild/config.mak)"
 rm -f ffmpeg_g ffprobe_g ffmpeg ffprobe
-if ! env -u CFLAGS -u CXXFLAGS -u LDFLAGS make V=1 LDEXEFLAGS="$LDEXE -Wl,-t" ffmpeg_g ffprobe_g > "$SALIDA/enlazado.log" 2>&1; then
-    tail -n 200 "$SALIDA/enlazado.log" >&2
+if ! env -u CFLAGS -u CXXFLAGS -u LDFLAGS make V=1 LDEXEFLAGS="$LDEXE -Wl,-t" ffmpeg_g ffprobe_g > "$SALIDA/enlazado.log" 2> "$SALIDA/enlazado-avisos.log"; then
+    tail -n 100 "$SALIDA/enlazado.log" "$SALIDA/enlazado-avisos.log" >&2
     vf_die "el reenlazado con traza fallo"
 fi
 # Objetos compilados para un macOS mas nuevo que el minimo. El enlazador de Xcode 15 y posteriores
@@ -77,8 +80,8 @@ if ! grep -Eq "$AVISO_MINOS" "$cen/ld.log"; then
     vf_die "el centinela de minos no caza el aviso real del enlazador: revisar el patron «$AVISO_MINOS»"
 fi
 rm -rf "$cen"
-if grep -Eq "$AVISO_MINOS" "$SALIDA/enlazado.log"; then
-    grep -E "$AVISO_MINOS" "$SALIDA/enlazado.log" >&2
+if grep -Eq "$AVISO_MINOS" "$SALIDA/enlazado-avisos.log" "$SALIDA/enlazado.log"; then
+    grep -E "$AVISO_MINOS" "$SALIDA/enlazado-avisos.log" "$SALIDA/enlazado.log" >&2
     vf_die "hay objetos compilados para un macOS mas nuevo que $MACOS_MIN"
 fi
 env -u CFLAGS -u CXXFLAGS -u LDFLAGS make V=1 ffmpeg ffprobe
