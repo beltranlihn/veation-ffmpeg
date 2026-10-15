@@ -20,8 +20,11 @@
      --solo <lista>            bloques a ejecutar (A,B,C,D1..D5,E,F,G,H,J o alias version,otool,hap)
      --json <archivo>          resultado en JSON
      --corpus-dir <dir>        (F) deja ahi el corpus de video fabricado por el juez
-     --corpus-salida <json>    (F) framemd5 del candidato por archivo del corpus (tools/corpus.mjs hace
-                               lo mismo en el otro sistema con esos archivos: paridad P6)
+     --corpus-salida <json>    (F) framemd5 del candidato por archivo del corpus, decodificado en modo
+                               reproducible (-flags +bitexact -idct simple; tools/corpus.mjs hace lo mismo
+                               en el otro sistema con esos archivos: paridad P6)
+     --bitexact                (F) juez y candidato decodifican en modo reproducible: para comparar dos
+                               ARQUITECTURAS distintas (la rodaja x86_64 del Mac contra el juez arm64)
    Codigos: 0 todo bien · 1 algun FALLO. N-A = hardware ausente en ESTA maquina (se lista, no es fallo).
    SALTADO = perdida deliberada de la v1 (FFMPEG-PROPIO.md, 3.8) o el juez no fabrica ese formato.
 
@@ -37,7 +40,7 @@ const FF = A[0]; if (!FF || FF.startsWith('--')) { console.log('uso: node ff-che
 const opt = k => { const i = A.indexOf(k); return i > 0 ? A[i + 1] : null; };
 const flag = k => A.includes(k);
 const OS = opt('--os') || (process.platform === 'win32' ? 'win' : 'mac');
-const SOLO_CPU = flag('--solo-cpu'), CI = flag('--ci');
+const SOLO_CPU = flag('--solo-cpu'), CI = flag('--ci'), BITEXACT_F = flag('--bitexact');
 const MF = opt('--mf') === null ? true : opt('--mf') === '1';
 const ALIAS = { version: 'A1', otool: 'G', hap: 'D3' };
 const SOLO = opt('--solo') ? opt('--solo').split(',').map(s => ALIAS[s] || s) : null;
@@ -262,14 +265,23 @@ if (toca('F')) {
     const AU = [['aac', ['-c:a', 'aac'], 'm4a'], ['mp3', ['-c:a', 'libmp3lame'], 'mp3'], ['flac', ['-c:a', 'flac'], 'flac'], ['alac', ['-c:a', 'alac'], 'm4a'], ['opus', ['-c:a', 'libopus'], 'opus'], ['vorbis', ['-c:a', 'libvorbis'], 'ogg'],
       ['ac3', ['-c:a', 'ac3'], 'ac3'], ['eac3', ['-c:a', 'eac3'], 'eac3'], ['dts', ['-c:a', 'dca', '-strict', '-2'], 'dts'], ['pcm24be', ['-c:a', 'pcm_s24be'], 'aiff'], ['wavpack', ['-c:a', 'wavpack'], 'wv'], ['mp2', ['-c:a', 'mp2'], 'mp2'],
       ['amrnb', ['-ar', '8000', '-ac', '1', '-c:a', 'libopencore_amrnb'], 'amr']];
-    const md5 = (bin, f, extra) => { const r = run(bin, ['-hide_banner', '-loglevel', 'error', ...extra, '-i', f, '-map', '0', '-f', 'framemd5', '-']); return r.code === 0 ? r.out.split(/\r?\n/).filter(l => l && l[0] !== '#').join('\n') : null; };
+    /* Modo reproducible: por defecto, cada arquitectura usa su IDCT y su transformada de color en SIMD
+       (en arm64 la IDCT de NEON, que no da los mismos bits que la «simple» de C y de x86_64; en x86 la ICT
+       en coma flotante de SSE/FMA para JPEG 2000 9/7). Entre arquitecturas distintas eso no es
+       reproducible, y FFmpeg no lo promete: sus propias pruebas (FATE) decodifican con «-flags +bitexact
+       -idct simple», que fija la IDCT simple y la DWT 9/7 entera. La build 38730882310 lo midio: la rodaja
+       x86_64 contra el juez arm64 dio j2k, mjpeg, mpeg4 y dv distintos. En la misma arquitectura la F se
+       compara en el modo por defecto, el que usa VEATION. */
+    const REPRODUCIBLE = ['-flags', '+bitexact', '-idct', 'simple'];
+    const md5 = (bin, f, extra, rep) => { const r = run(bin, ['-hide_banner', '-loglevel', 'error', ...(rep ? REPRODUCIBLE : []), ...extra, '-i', f, '-map', '0', '-f', 'framemd5', '-']); return r.code === 0 ? r.out.split(/\r?\n/).filter(l => l && l[0] !== '#').join('\n') : null; };
     const pcm = (bin, f) => { const r = run(bin, ['-hide_banner', '-loglevel', 'error', '-i', f, '-map', '0:a:0', '-ac', '1', '-ar', '48000', '-f', 's16le', '-']); return r.code === 0 ? Buffer.from(r.out, 'latin1') : null; };
     const corpus = {};
     let fi = 0;
     /* --corpus-dir: el corpus de video se queda ahi para que el Mac decodifique LOS MISMOS archivos (paridad P6) */
     const CORPUS = opt('--corpus-dir'); if (CORPUS) fs.mkdirSync(CORPUS, { recursive: true });
     for (const [n, a, ext] of V) { fi++; const f = CORPUS ? path.join(CORPUS, 'c-' + n + '.' + ext) : T('c-' + n + '.' + ext); const fab = jz(['-f', 'lavfi', '-i', 'testsrc2=s=320x240:r=30:d=0.2', ...a, f]); if (fab.code !== 0) { out('SALTADO', 'F' + fi, n + ' — el juez no lo fabrica'); continue; }
-      const ex = n === 'vp9a' ? ['-c:v', 'libvpx-vp9'] : [], a1 = md5(JUEZ, f, ex), a2 = md5(FF, f, ex); if (a2) corpus[n] = a2;
+      const ex = n === 'vp9a' ? ['-c:v', 'libvpx-vp9'] : [], a1 = md5(JUEZ, f, ex, BITEXACT_F), a2 = md5(FF, f, ex, BITEXACT_F);
+      if (a2 && opt('--corpus-salida')) { const rep = BITEXACT_F ? a2 : md5(FF, f, ex, true); if (rep) corpus[n] = rep; }
       out(a2 && a1 === a2 ? 'OK' : (PERDIDA_DELIBERADA.has(n) && !a2 ? 'SALTADO' : 'FALLO'), 'F' + fi, 'decodifica ' + n + ' igual que el juez' + (a2 ? (a1 === a2 ? '' : ' — fotogramas DISTINTOS') : (PERDIDA_DELIBERADA.has(n) ? ' — no decodifica (perdida deliberada de la v1)' : ' — NO decodifica'))); }
     for (const [n, a, ext] of AU) { fi++; const f = T('c-' + n + '.' + ext); const fab = jz(['-f', 'lavfi', '-i', 'sine=frequency=1000:duration=0.5:sample_rate=48000', ...(a.includes('-ac') ? [] : ['-ac', '2']), ...a, f]); if (fab.code !== 0) { out('SALTADO', 'F' + fi, n + ' — el juez no lo fabrica'); continue; }
       const p1 = pcm(JUEZ, f), p2 = pcm(FF, f); let dmax = -1; if (p1 && p2 && p1.length === p2.length) { dmax = 0; for (let i = 0; i < p1.length; i += 2) dmax = Math.max(dmax, Math.abs(p1.readInt16LE(i) - p2.readInt16LE(i))); }
@@ -300,7 +312,8 @@ if (toca('G')) {
       else out('N-A', 'G2', 'las DLL solo se pueden buscar en System32 desde Windows');
     }
   } else {
-    const r = run('otool', ['-L', FF]); const fuera = r.out.split(/\r?\n/).slice(1).map(s => s.trim().split(' ')[0]).filter(s => s && !/^\/usr\/lib\/|^\/System\//.test(s));
+    /* solo las lineas sangradas: en un universal hay una cabecera «<ruta> (architecture x):» por arquitectura */
+    const r = run('otool', ['-L', FF]); const fuera = r.out.split(/\r?\n/).filter(s => /^\s/.test(s)).map(s => s.trim().split(' ')[0]).filter(s => s && !/^\/usr\/lib\/|^\/System\//.test(s));
     out(r.code === 0 && !fuera.length ? 'OK' : 'FALLO', 'G1', 'otool -L solo /usr/lib y /System' + (fuera.length ? ' — FUERA: ' + fuera.join(' ') : ''));
     const archs = run('lipo', ['-archs', FF]).out.trim().split(/\s+/).filter(Boolean);
     for (const a of archs) { const v = run('vtool', ['-arch', a, '-show-build', FF]).out; const m = [...v.matchAll(/minos\s+(\S+)/g)].map(x => x[1]); out(m.length && m.every(x => x === MACOS_MIN) ? 'OK' : 'FALLO', 'G2', `vtool ${a}: minos ${m.join(',') || '(ninguno)'} (se pide ${MACOS_MIN})`); }

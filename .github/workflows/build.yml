@@ -283,7 +283,7 @@ jobs:
         if: steps.rosetta.outputs.hay == '1'
         run: |
           test "$(lipo -archs out/mac-x86_64/ffmpeg)" = x86_64
-          node tools/ff-checklist.mjs out/mac-x86_64/ffmpeg --os mac --ci --solo F --juez "$JUEZ" --json checklist-F-x86_64-rosetta.json
+          node tools/ff-checklist.mjs out/mac-x86_64/ffmpeg --os mac --ci --solo F --bitexact --juez "$JUEZ" --json checklist-F-x86_64-rosetta.json
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:

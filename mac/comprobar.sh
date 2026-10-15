@@ -23,7 +23,10 @@ for b in ffmpeg ffprobe; do
     f="$DIR/$b"
     [ -x "$f" ] || { rojo "$b no existe o no es ejecutable"; continue; }
 
-    fuera="$(otool -L "$f" | tail -n +2 | awk '{ print $1 }' | grep -v -E '^(/usr/lib/|/System/)' || true)"
+    # Solo las lineas sangradas son bibliotecas. En un universal, otool -L escribe una cabecera por
+    # arquitectura («<ruta> (architecture arm64):»); saltar solo la primera linea dejaba la segunda
+    # cabecera como si fuera una biblioteca fuera del sistema (mac-universal de la build 38730882310).
+    fuera="$(otool -L "$f" | awk '/^[[:space:]]/ { print $1 }' | grep -v -E '^(/usr/lib/|/System/)' || true)"
     [ -z "$fuera" ] || rojo "$b enlaza fuera del sistema: $(echo $fuera)"
 
     reales="$(lipo -archs "$f")"

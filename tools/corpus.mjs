@@ -14,7 +14,9 @@ const res = {};
 for (const f of fs.readdirSync(DIR).sort()) {
   const m = /^c-(.+)\.[^.]+$/.exec(f); if (!m) continue;
   const extra = m[1] === 'vp9a' ? ['-c:v', 'libvpx-vp9'] : [];
-  const r = spawnSync(FF, ['-hide_banner', '-loglevel', 'error', ...extra, '-i', path.join(DIR, f), '-map', '0', '-f', 'framemd5', '-'], { encoding: 'latin1', maxBuffer: 1 << 28 });
+  /* modo reproducible, el mismo que usa ff-checklist para --corpus-salida: entre arquitecturas, la IDCT y
+     la ICT por defecto (SIMD de cada una) no dan los mismos bits (ff-checklist.mjs, puerta F) */
+  const r = spawnSync(FF, ['-hide_banner', '-loglevel', 'error', '-flags', '+bitexact', '-idct', 'simple', ...extra, '-i', path.join(DIR, f), '-map', '0', '-f', 'framemd5', '-'], { encoding: 'latin1', maxBuffer: 1 << 28 });
   if (r.status === 0) res[m[1]] = r.stdout.split(/\r?\n/).filter(l => l && l[0] !== '#').join('\n');
   console.log(`${r.status === 0 ? 'ok ' : 'NO '} ${f}`);
 }
