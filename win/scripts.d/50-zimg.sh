@@ -3,7 +3,7 @@
 # >>> veation: bloque que escribe tools/aplicar-lock.sh desde versions.lock (no editar a mano)
 SCRIPT_PIEZA="zimg"
 SCRIPT_REPO="https://github.com/sekrit-twc/zimg.git"
-SCRIPT_COMMIT="PENDIENTE"
+SCRIPT_COMMIT="f819b14e8f39d1282400b0d9543e8ef73c1b2bbd"
 # <<< veation
 
 ffbuild_enabled() {

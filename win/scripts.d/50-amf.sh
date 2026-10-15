@@ -3,7 +3,7 @@
 # >>> veation: bloque que escribe tools/aplicar-lock.sh desde versions.lock (no editar a mano)
 SCRIPT_PIEZA="amf"
 SCRIPT_REPO="https://github.com/GPUOpen-LibrariesAndSDKs/AMF.git"
-SCRIPT_COMMIT="PENDIENTE"
+SCRIPT_COMMIT="afed28d37aca1938da2eedc50599bb3535a987ec"
 # <<< veation
 
 ffbuild_enabled() {

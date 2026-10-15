@@ -3,7 +3,7 @@
 # >>> veation: bloque que escribe tools/aplicar-lock.sh desde versions.lock (no editar a mano)
 SCRIPT_PIEZA="libiconv"
 SCRIPT_REPO="https://ftp.gnu.org/gnu/libiconv/libiconv-1.19.tar.gz"
-SCRIPT_SHA256="PENDIENTE"
+SCRIPT_SHA256="88dd96a8c0464eca144fc791ae60cd31cd8ee78321e67397e25fc095c4a19aa6"
 # <<< veation
 
 ffbuild_enabled() {

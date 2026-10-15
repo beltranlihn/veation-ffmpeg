@@ -3,7 +3,7 @@
 # >>> veation: bloque que escribe tools/aplicar-lock.sh desde versions.lock (no editar a mano)
 SCRIPT_PIEZA="opus"
 SCRIPT_REPO="https://downloads.xiph.org/releases/opus/opus-1.6.1.tar.gz"
-SCRIPT_SHA256="PENDIENTE"
+SCRIPT_SHA256="6ffcb593207be92584df15b32466ed64bbec99109f007c82205f0194572411a1"
 # <<< veation
 
 ffbuild_enabled() {

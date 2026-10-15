@@ -3,7 +3,7 @@
 # >>> veation: bloque que escribe tools/aplicar-lock.sh desde versions.lock (no editar a mano)
 SCRIPT_PIEZA="libxml2"
 SCRIPT_REPO="https://github.com/GNOME/libxml2.git"
-SCRIPT_COMMIT="PENDIENTE"
+SCRIPT_COMMIT="96498992efa48d52b0e8b83058bd88dbdaf153c1"
 # <<< veation
 
 ffbuild_depends() {

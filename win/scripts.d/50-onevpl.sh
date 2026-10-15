@@ -3,7 +3,7 @@
 # >>> veation: bloque que escribe tools/aplicar-lock.sh desde versions.lock (no editar a mano)
 SCRIPT_PIEZA="libvpl"
 SCRIPT_REPO="https://github.com/intel/libvpl.git"
-SCRIPT_COMMIT="PENDIENTE"
+SCRIPT_COMMIT="778a66d6c6537f08eabb91955dbbf1bce3812894"
 # <<< veation
 
 ffbuild_enabled() {

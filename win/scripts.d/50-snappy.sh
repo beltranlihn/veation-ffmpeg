@@ -3,7 +3,7 @@
 # >>> veation: bloque que escribe tools/aplicar-lock.sh desde versions.lock (no editar a mano)
 SCRIPT_PIEZA="snappy"
 SCRIPT_REPO="https://github.com/google/snappy.git"
-SCRIPT_COMMIT="PENDIENTE"
+SCRIPT_COMMIT="6af9287fbdb913f0794d0148c6aa43b58e63c8e3"
 # <<< veation
 
 ffbuild_enabled() {

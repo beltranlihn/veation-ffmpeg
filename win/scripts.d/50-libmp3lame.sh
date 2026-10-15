@@ -3,7 +3,7 @@
 # >>> veation: bloque que escribe tools/aplicar-lock.sh desde versions.lock (no editar a mano)
 SCRIPT_PIEZA="lame"
 SCRIPT_REPO="https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz"
-SCRIPT_SHA256="PENDIENTE"
+SCRIPT_SHA256="ddfe36cab873794038ae2c1210557ad34857a4b6bdc515785d1da9e175b1da1e"
 # <<< veation
 
 ffbuild_depends() {

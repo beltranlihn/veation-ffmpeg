@@ -3,7 +3,7 @@
 # >>> veation: bloque que escribe tools/aplicar-lock.sh desde versions.lock (no editar a mano)
 SCRIPT_PIEZA="bzip2"
 SCRIPT_REPO="https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz"
-SCRIPT_SHA256="PENDIENTE"
+SCRIPT_SHA256="ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269"
 # <<< veation
 
 # [veation] Script NUEVO (BtbN no tiene bzip2). gyan lo lleva (--enable-bzlib) y FFmpeg lo usa para las

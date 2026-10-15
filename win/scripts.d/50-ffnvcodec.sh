@@ -3,7 +3,7 @@
 # >>> veation: bloque que escribe tools/aplicar-lock.sh desde versions.lock (no editar a mano)
 SCRIPT_PIEZA="ffnvcodec"
 SCRIPT_REPO="https://github.com/FFmpeg/nv-codec-headers.git"
-SCRIPT_COMMIT="PENDIENTE"
+SCRIPT_COMMIT="1889e62e2d35ff7aa9baca2bceb14f053785e6f1"
 # <<< veation
 
 # [veation] Una sola rama de cabeceras, la decidida (piezas.conf: nvenc-cabeceras = n12.1.14.0, driver

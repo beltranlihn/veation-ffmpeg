@@ -38,66 +38,66 @@
 # ultima estable (xz nunca 5.6.0 ni 5.6.1). Las subidas de version van en rondas aparte.
 
 # ---------------------------------------------------------------------------------------------- FFmpeg
-ffmpeg            win,mac  tarball      https://ffmpeg.org/releases/ffmpeg-8.1.3.tar.xz                                   8.1.3          rol:fuente sha256:PENDIENTE gpg:FCF986EA15E6E293A5644F10B4322F04D67658D8 firma:https://ffmpeg.org/releases/ffmpeg-8.1.3.tar.xz.asc clave:https://ffmpeg.org/ffmpeg-devel.asc etiqueta:n8.1.3 commit:1041abdc962f4cc4f394aa8de9dc5236c0c3b9e7
+ffmpeg            win,mac  tarball      https://ffmpeg.org/releases/ffmpeg-8.1.3.tar.xz                                   8.1.3          rol:fuente sha256:7138d28c96d9d3e3af4ee3d8cad72741f8ffb40da90c1112235dea3ecd3178a3 gpg:FCF986EA15E6E293A5644F10B4322F04D67658D8 firma:https://ffmpeg.org/releases/ffmpeg-8.1.3.tar.xz.asc clave:https://ffmpeg.org/ffmpeg-devel.asc etiqueta:n8.1.3 commit:1041abdc962f4cc4f394aa8de9dc5236c0c3b9e7
 
 # ------------------------------------------------------------------------ bibliotecas de los dos sistemas
-x264              win,mac  git          https://code.videolan.org/videolan/x264.git                                       r3223          rol:fuente commit:PENDIENTE resolver:rev-count
-x265              win,mac  git          https://github.com/Multicorewareinc/x265.git                                      4.1            rol:fuente commit:PENDIENTE
-libvpx            win,mac  git          https://chromium.googlesource.com/webm/libvpx                                     v1.16.0        rol:fuente commit:PENDIENTE
-dav1d             win,mac  git          https://code.videolan.org/videolan/dav1d.git                                      1.5.3          rol:fuente commit:PENDIENTE
-svtav1            win,mac  git          https://gitlab.com/AOMediaCodec/SVT-AV1.git                                       v4.0.1         rol:fuente commit:PENDIENTE
-snappy            win,mac  git          https://github.com/google/snappy.git                                              1.2.2          rol:fuente commit:PENDIENTE
-zimg              win,mac  git          https://github.com/sekrit-twc/zimg.git                                            release-3.0.6  rol:fuente commit:PENDIENTE
-libxml2           win,mac  git          https://github.com/GNOME/libxml2.git                                              v2.15.4        rol:fuente commit:PENDIENTE
-opus              win,mac  tarball      https://downloads.xiph.org/releases/opus/opus-1.6.1.tar.gz                        1.6.1          rol:fuente sha256:PENDIENTE
-lame              win,mac  tarball      https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz       3.100          rol:fuente sha256:PENDIENTE
-xz                win,mac  tarball      https://github.com/tukaani-project/xz/releases/download/v5.8.4/xz-5.8.4.tar.xz    5.8.4          rol:fuente sha256:PENDIENTE
+x264              win,mac  git          https://code.videolan.org/videolan/x264.git                                       r3223          rol:fuente commit:0480cb05fa188d37ae87e8f4fd8f1aea3711f7ee resolver:rev-count
+x265              win,mac  git          https://github.com/Multicorewareinc/x265.git                                      4.1            rol:fuente commit:1d117bed4747758b51bd2c124d738527e30392cb
+libvpx            win,mac  git          https://chromium.googlesource.com/webm/libvpx                                     v1.16.0        rol:fuente commit:1024874c5919305883187e2953de8fcb4c3d7fa6
+dav1d             win,mac  git          https://code.videolan.org/videolan/dav1d.git                                      1.5.3          rol:fuente commit:b546257f770768b2c88258c533da38b91a06f737
+svtav1            win,mac  git          https://gitlab.com/AOMediaCodec/SVT-AV1.git                                       v4.0.1         rol:fuente commit:4ae9272b588a05ee6e77a43e8dfdac05f54c4ff0
+snappy            win,mac  git          https://github.com/google/snappy.git                                              1.2.2          rol:fuente commit:6af9287fbdb913f0794d0148c6aa43b58e63c8e3
+zimg              win,mac  git          https://github.com/sekrit-twc/zimg.git                                            release-3.0.6  rol:fuente commit:f819b14e8f39d1282400b0d9543e8ef73c1b2bbd
+libxml2           win,mac  git          https://github.com/GNOME/libxml2.git                                              v2.15.4        rol:fuente commit:96498992efa48d52b0e8b83058bd88dbdaf153c1
+opus              win,mac  tarball      https://downloads.xiph.org/releases/opus/opus-1.6.1.tar.gz                        1.6.1          rol:fuente sha256:6ffcb593207be92584df15b32466ed64bbec99109f007c82205f0194572411a1
+lame              win,mac  tarball      https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz       3.100          rol:fuente sha256:ddfe36cab873794038ae2c1210557ad34857a4b6bdc515785d1da9e175b1da1e
+xz                win,mac  tarball      https://github.com/tukaani-project/xz/releases/download/v5.8.4/xz-5.8.4.tar.xz    5.8.4          rol:fuente sha256:4ce24038fd4221e0d13bc1a2de7a4db56e90b92b3bf75321f6c14be73f65de4b
 
 # ---------------------------------------------------------------------- bibliotecas y cabeceras de Windows
-zlib              win      git          https://github.com/madler/zlib.git                                                v1.3.2         rol:fuente commit:PENDIENTE
-bzip2             win      tarball      https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz                               1.0.8          rol:fuente sha256:PENDIENTE
-libiconv          win      tarball      https://ftp.gnu.org/gnu/libiconv/libiconv-1.19.tar.gz                             1.19           rol:fuente sha256:PENDIENTE
-ffnvcodec         win      git          https://github.com/FFmpeg/nv-codec-headers.git                                    n12.1.14.0     rol:fuente commit:PENDIENTE
-amf               win      git          https://github.com/GPUOpen-LibrariesAndSDKs/AMF.git                               v1.5.0         rol:fuente commit:PENDIENTE solo:amf/public/include,LICENSE.txt
-libvpl            win      git          https://github.com/intel/libvpl.git                                               v2.16.0        rol:fuente commit:PENDIENTE
+zlib              win      git          https://github.com/madler/zlib.git                                                v1.3.2         rol:fuente commit:da607da739fa6047df13e66a2af6b8bec7c2a498
+bzip2             win      tarball      https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz                               1.0.8          rol:fuente sha256:ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269
+libiconv          win      tarball      https://ftp.gnu.org/gnu/libiconv/libiconv-1.19.tar.gz                             1.19           rol:fuente sha256:88dd96a8c0464eca144fc791ae60cd31cd8ee78321e67397e25fc095c4a19aa6
+ffnvcodec         win      git          https://github.com/FFmpeg/nv-codec-headers.git                                    n12.1.14.0     rol:fuente commit:1889e62e2d35ff7aa9baca2bceb14f053785e6f1
+amf               win      git          https://github.com/GPUOpen-LibrariesAndSDKs/AMF.git                               v1.5.0         rol:fuente commit:afed28d37aca1938da2eedc50599bb3535a987ec solo:amf/public/include,LICENSE.txt
+libvpl            win      git          https://github.com/intel/libvpl.git                                               v2.16.0        rol:fuente commit:778a66d6c6537f08eabb91955dbbf1bce3812894
 mingw-std-threads win      git          https://github.com/meganz/mingw-std-threads.git                                   c931bac289dd431f1dd30fc4a5d1a7be36668073 rol:fuente commit:c931bac289dd431f1dd30fc4a5d1a7be36668073
 
 # ------------------------------------------------- toolchain de Windows (aporta el runtime enlazado: va al paquete)
 mingw-w64         win      git          https://github.com/mingw-w64/mingw-w64.git                                        57b595039040eaa15bece85b7cc71d952281b269 rol:toolchain commit:57b595039040eaa15bece85b7cc71d952281b269
-crosstool-ng      win      git          https://github.com/crosstool-ng/crosstool-ng.git                                  b1a94f6        rol:toolchain commit:PENDIENTE
-gcc               win      tarball      https://ftp.gnu.org/gnu/gcc/gcc-16.2.0/gcc-16.2.0.tar.xz                          16.2.0         rol:toolchain sha256:PENDIENTE
-binutils          win      tarball      https://ftp.gnu.org/gnu/binutils/binutils-2.47.tar.xz                             2.47           rol:toolchain sha256:PENDIENTE
-mingw-w64-ctng    win      tarball      https://downloads.sourceforge.net/project/mingw-w64/mingw-w64/mingw-w64-release/mingw-w64-v14.0.0.tar.bz2 v14.0.0 rol:toolchain sha256:PENDIENTE
-gmp               win      tarball      https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz                                      6.3.0          rol:toolchain sha256:PENDIENTE
-mpfr              win      tarball      https://ftp.gnu.org/gnu/mpfr/mpfr-4.2.2.tar.xz                                    4.2.2          rol:toolchain sha256:PENDIENTE
-mpc               win      tarball      https://ftp.gnu.org/gnu/mpc/mpc-1.3.1.tar.gz                                      1.3.1          rol:toolchain sha256:PENDIENTE
-isl               win      tarball      https://libisl.sourceforge.io/isl-0.27.tar.xz                                     0.27           rol:toolchain sha256:PENDIENTE
-zlib-ctng         win      tarball      https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.xz        1.3.1          rol:toolchain sha256:PENDIENTE
-zstd-ctng         win      tarball      https://github.com/facebook/zstd/releases/download/v1.5.7/zstd-1.5.7.tar.gz       1.5.7          rol:toolchain sha256:PENDIENTE
-gettext-ctng      win      tarball      https://ftp.gnu.org/gnu/gettext/gettext-0.26.tar.xz                               0.26           rol:toolchain sha256:PENDIENTE
-mold-ctng         win      tarball      https://github.com/rui314/mold/archive/refs/tags/v2.42.0.tar.gz                   2.42.0         rol:toolchain sha256:PENDIENTE
+crosstool-ng      win      git          https://github.com/crosstool-ng/crosstool-ng.git                                  b1a94f6        rol:toolchain commit:b1a94f65c5187d99037a4e2f57aefbdf995a9677
+gcc               win      tarball      https://ftp.gnu.org/gnu/gcc/gcc-16.2.0/gcc-16.2.0.tar.xz                          16.2.0         rol:toolchain sha256:e6738e29597f733270731aa90600f37ffdc045079dfc27ec7e8192cc81085c3e
+binutils          win      tarball      https://ftp.gnu.org/gnu/binutils/binutils-2.47.tar.xz                             2.47           rol:toolchain sha256:154ab23b60070e8f27013c22977f1129425d67d1e8acd6e13010e617811e4cff
+mingw-w64-ctng    win      tarball      https://downloads.sourceforge.net/project/mingw-w64/mingw-w64/mingw-w64-release/mingw-w64-v14.0.0.tar.bz2 v14.0.0 rol:toolchain sha256:6eaf921d9eb987d3820b364ea9775bc19b965ec81490b6fdd716526c28e1995c
+gmp               win      tarball      https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz                                      6.3.0          rol:toolchain sha256:a3c2b80201b89e68616f4ad30bc66aee4927c3ce50e33929ca819d5c43538898
+mpfr              win      tarball      https://ftp.gnu.org/gnu/mpfr/mpfr-4.2.2.tar.xz                                    4.2.2          rol:toolchain sha256:b67ba0383ef7e8a8563734e2e889ef5ec3c3b898a01d00fa0a6869ad81c6ce01
+mpc               win      tarball      https://ftp.gnu.org/gnu/mpc/mpc-1.3.1.tar.gz                                      1.3.1          rol:toolchain sha256:ab642492f5cf882b74aa0cb730cd410a81edcdbec895183ce930e706c1c759b8
+isl               win      tarball      https://libisl.sourceforge.io/isl-0.27.tar.xz                                     0.27           rol:toolchain sha256:6d8babb59e7b672e8cb7870e874f3f7b813b6e00e6af3f8b04f7579965643d5c
+zlib-ctng         win      tarball      https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.xz        1.3.1          rol:toolchain sha256:38ef96b8dfe510d42707d9c781877914792541133e1870841463bfa73f883e32
+zstd-ctng         win      tarball      https://github.com/facebook/zstd/releases/download/v1.5.7/zstd-1.5.7.tar.gz       1.5.7          rol:toolchain sha256:eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3
+gettext-ctng      win      tarball      https://ftp.gnu.org/gnu/gettext/gettext-0.26.tar.xz                               0.26           rol:toolchain sha256:d1fb86e260cfe7da6031f94d2e44c0da55903dbae0a2fa0fae78c91ae1b56f00
+mold-ctng         win      tarball      https://github.com/rui314/mold/archive/refs/tags/v2.42.0.tar.gz                   2.42.0         rol:toolchain sha256:6c0f3308c5b3159a369202d970922ad819bab1bfcb5a3b3c06a723d19f65373e
 btbn              win      git          https://github.com/BtbN/FFmpeg-Builds.git                                         63ac3265       rol:receta commit:63ac3265b0789ea16c7b1f8351cd2ad195a28722
 
 # ---------------------------------------------------------- herramientas usadas sin modificar (no van al paquete)
-ubuntu-base       win      oci          docker.io/library/ubuntu:26.04                                                    26.04          rol:herramienta digest:PENDIENTE
-autoconf-deb      win      herramienta  https://archive.ubuntu.com/ubuntu/pool/main/a/autoconf/autoconf_2.73-2_all.deb    2.73-2         rol:herramienta sha256:PENDIENTE
-cmake-linux       win      herramienta  https://github.com/Kitware/CMake/releases/download/v3.31.9/cmake-3.31.9-linux-x86_64.tar.gz 3.31.9 rol:herramienta sha256:PENDIENTE
-cmake-mac         mac      herramienta  https://github.com/Kitware/CMake/releases/download/v3.31.9/cmake-3.31.9-macos-universal.tar.gz 3.31.9 rol:herramienta sha256:PENDIENTE
+ubuntu-base       win      oci          docker.io/library/ubuntu:26.04                                                    26.04          rol:herramienta digest:sha256:f144425ff09be612d6d9ad965196e9cdc23dae1f42110a8a11a3e9a8198759f7
+autoconf-deb      win      herramienta  https://archive.ubuntu.com/ubuntu/pool/main/a/autoconf/autoconf_2.73-2_all.deb    2.73-2         rol:herramienta sha256:7708a595b2857bca8bfa4fbbde7d33005dbb0219d0abad305810fce9eaa63270
+cmake-linux       win      herramienta  https://github.com/Kitware/CMake/releases/download/v3.31.9/cmake-3.31.9-linux-x86_64.tar.gz 3.31.9 rol:herramienta sha256:312d78e0b7c5c9b4a97a87a46c3e525aa84895fe8135c238c4616bba73dc9518
+cmake-mac         mac      herramienta  https://github.com/Kitware/CMake/releases/download/v3.31.9/cmake-3.31.9-macos-universal.tar.gz 3.31.9 rol:herramienta sha256:eb9d0b2b6a5b900e2f5811326a86ea393a146e4cb2384d15512c226e9c98f8bf
 # meson 1.11.2 y no 1.12.x: desde la 1.12 meson.py exige Python 3.10 y en el Mac se ejecuta con el
 # /usr/bin/python3 de Xcode, que es 3.9.6 (1.11.2 pide 3.7). La misma version en los dos sistemas.
-meson             win,mac  herramienta  https://github.com/mesonbuild/meson/releases/download/1.11.2/meson-1.11.2.tar.gz  1.11.2         rol:herramienta sha256:PENDIENTE
-ninja-mac         mac      herramienta  https://github.com/ninja-build/ninja/releases/download/v1.13.2/ninja-mac.zip       1.13.2         rol:herramienta sha256:PENDIENTE
-nasm              mac      herramienta  https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/nasm-2.16.03.tar.xz            2.16.03        rol:herramienta sha256:PENDIENTE
-pkgconf           mac      herramienta  https://distfiles.ariadne.space/pkgconf/pkgconf-2.5.1.tar.xz                      2.5.1          rol:herramienta sha256:PENDIENTE
-m4                mac      herramienta  https://ftp.gnu.org/gnu/m4/m4-1.4.20.tar.xz                                       1.4.20         rol:herramienta sha256:PENDIENTE
-autoconf          mac      herramienta  https://ftp.gnu.org/gnu/autoconf/autoconf-2.73.tar.xz                            2.73           rol:herramienta sha256:PENDIENTE
-automake          mac      herramienta  https://ftp.gnu.org/gnu/automake/automake-1.18.1.tar.xz                           1.18.1         rol:herramienta sha256:PENDIENTE
-libtool           mac      herramienta  https://ftp.gnu.org/gnu/libtool/libtool-2.5.4.tar.xz                              2.5.4          rol:herramienta sha256:PENDIENTE
+meson             win,mac  herramienta  https://github.com/mesonbuild/meson/releases/download/1.11.2/meson-1.11.2.tar.gz  1.11.2         rol:herramienta sha256:698feae069cef3ecd4d7aaf281d7df359bdfcf555a9a1564383d3b913fa8a736
+ninja-mac         mac      herramienta  https://github.com/ninja-build/ninja/releases/download/v1.13.2/ninja-mac.zip       1.13.2         rol:herramienta sha256:c99048673aa765960a99cf10c6ddb9f1fad506099ff0a0e137ad8960a88f321b
+nasm              mac      herramienta  https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/nasm-2.16.03.tar.xz            2.16.03        rol:herramienta sha256:1412a1c760bbd05db026b6c0d1657affd6631cd0a63cddb6f73cc6d4aa616148
+pkgconf           mac      herramienta  https://distfiles.ariadne.space/pkgconf/pkgconf-2.5.1.tar.xz                      2.5.1          rol:herramienta sha256:cd05c9589b9f86ecf044c10a2269822bc9eb001eced2582cfffd658b0a50c243
+m4                mac      herramienta  https://ftp.gnu.org/gnu/m4/m4-1.4.20.tar.xz                                       1.4.20         rol:herramienta sha256:e236ea3a1ccf5f6c270b1c4bb60726f371fa49459a8eaaebc90b216b328daf2b
+autoconf          mac      herramienta  https://ftp.gnu.org/gnu/autoconf/autoconf-2.73.tar.xz                            2.73           rol:herramienta sha256:9fd672b1c8425fac2fa67fa0477b990987268b90ff36d5f016dae57be0d6b52e
+automake          mac      herramienta  https://ftp.gnu.org/gnu/automake/automake-1.18.1.tar.xz                           1.18.1         rol:herramienta sha256:168aa363278351b89af56684448f525a5bce5079d0b6842bd910fdd3f1646887
+libtool           mac      herramienta  https://ftp.gnu.org/gnu/libtool/libtool-2.5.4.tar.xz                              2.5.4          rol:herramienta sha256:f81f5860666b0bc7d84baddefa60d1cb9fa6fceb2398cc3baca6afaa60266675
 xcode             mac      referencia   /Applications/Xcode_16.4.app                                                      16.4           rol:herramienta
 
 # ------------------------------------------------------------- solo para las pruebas de la CI (nunca se distribuye)
 # Juez de Windows (FFMPEG-PROPIO.md, 5.5): el «8.1-full_build» de gyan, el mismo binario que VEATION lleva hoy.
-juez-win          win      herramienta  https://github.com/GyanD/codexffmpeg/releases/download/8.1/ffmpeg-8.1-full_build.zip 8.1 rol:prueba sha256:PENDIENTE contenido:ffmpeg-8.1-full_build/bin/ffmpeg.exe=d1e2a156261ecc675081943197a85f08f2868784a0af499171ede89353edad31
+juez-win          win      herramienta  https://github.com/GyanD/codexffmpeg/releases/download/8.1/ffmpeg-8.1-full_build.zip 8.1 rol:prueba sha256:587b1c37de29c5003d01cf65da10001bac43a58b88e61af0fc77c61daff04761 contenido:ffmpeg-8.1-full_build/bin/ffmpeg.exe=d1e2a156261ecc675081943197a85f08f2868784a0af499171ede89353edad31
 # Intel SDE (puerta I). La URL del kit de Windows y si sus terminos permiten bajarlo desde la CI los
 # tiene que decidir una persona (FFMPEG-PROPIO.md, 2.5.3): mientras tanto la puerta I sale «NO MEDIDA».
 sde-win           win      herramienta  PENDIENTE                                                                         10.5           rol:prueba sha256:PENDIENTE opcional:si
@@ -115,4 +115,4 @@ electron-builder  ninguno  referencia  https://github.com/electron-userland/elec
 # StdUtils: la etiqueta 1.14 del repositorio de su autor. Nsis7z: el archivo de la pagina del plug-in en el
 # wiki de NSIS; que traiga el fuente esta SIN VERIFICAR (la pagina no lo dice) y el workflow lo comprueba.
 stdutils          win      git          https://github.com/lordmulder/stdutils.git                                        1.14           rol:instalador commit:4e1117321001e54dcd2c52f72d3c359d5215e426 dll:StdUtils.dll=b72e9013a6204e9f01076dc38dabbf30870d44dfc66962adbf73619d4331601e
-nsis7z            win      tarball      https://nsis.sourceforge.io/mediawiki/images/6/69/Nsis7z_19.00.7z                19.00          rol:instalador sha256:PENDIENTE dll:nsis7z.dll=b393f05e8ff919ef071181050e1873c9a776e1a0ae8329aefff7007d0cadf592
+nsis7z            win      tarball      https://nsis.sourceforge.io/mediawiki/images/6/69/Nsis7z_19.00.7z                19.00          rol:instalador sha256:6f2f3730049926f40442ee0c8b7d3e3dee7ace544d82467ff8059ea3f4201c58 dll:nsis7z.dll=b393f05e8ff919ef071181050e1873c9a776e1a0ae8329aefff7007d0cadf592

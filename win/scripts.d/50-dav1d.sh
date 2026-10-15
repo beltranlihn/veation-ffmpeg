@@ -3,7 +3,7 @@
 # >>> veation: bloque que escribe tools/aplicar-lock.sh desde versions.lock (no editar a mano)
 SCRIPT_PIEZA="dav1d"
 SCRIPT_REPO="https://code.videolan.org/videolan/dav1d.git"
-SCRIPT_COMMIT="PENDIENTE"
+SCRIPT_COMMIT="b546257f770768b2c88258c533da38b91a06f737"
 # <<< veation
 
 ffbuild_enabled() {

@@ -3,7 +3,7 @@
 # >>> veation: bloque que escribe tools/aplicar-lock.sh desde versions.lock (no editar a mano)
 SCRIPT_PIEZA="x265"
 SCRIPT_REPO="https://github.com/Multicorewareinc/x265.git"
-SCRIPT_COMMIT="PENDIENTE"
+SCRIPT_COMMIT="1d117bed4747758b51bd2c124d738527e30392cb"
 # <<< veation
 
 ffbuild_enabled() {

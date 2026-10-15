@@ -3,7 +3,7 @@
 # >>> veation: bloque que escribe tools/aplicar-lock.sh desde versions.lock (no editar a mano)
 SCRIPT_PIEZA="libvpx"
 SCRIPT_REPO="https://chromium.googlesource.com/webm/libvpx"
-SCRIPT_COMMIT="PENDIENTE"
+SCRIPT_COMMIT="1024874c5919305883187e2953de8fcb4c3d7fa6"
 # <<< veation
 
 ffbuild_enabled() {

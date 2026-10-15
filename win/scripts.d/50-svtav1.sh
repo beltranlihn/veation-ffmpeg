@@ -3,7 +3,7 @@
 # >>> veation: bloque que escribe tools/aplicar-lock.sh desde versions.lock (no editar a mano)
 SCRIPT_PIEZA="svtav1"
 SCRIPT_REPO="https://gitlab.com/AOMediaCodec/SVT-AV1.git"
-SCRIPT_COMMIT="PENDIENTE"
+SCRIPT_COMMIT="4ae9272b588a05ee6e77a43e8dfdac05f54c4ff0"
 # <<< veation
 
 ffbuild_enabled() {
