@@ -40,14 +40,15 @@ done
 
 # -buildconf en la arquitectura nativa
 if echo " $ARCHS " | grep -q " $VF_ARCH "; then
-    real="$(mktemp)"
-    "$DIR/ffmpeg" -hide_banner -buildconf | tr -d '\r' \
-        | awk '/configuration:/ { d = 1; next } d { sub(/^[ \t]+/, ""); sub(/[ \t]+$/, ""); if ($0 != "") print }' > "$real"
-    if ! diff -u "$VF_RAIZ/expected/buildconf-$VF_SISTEMA.txt" "$real"; then
+    # El mismo volcado (y la misma normalizacion) que leen puertas.mjs y manifiesto.mjs: tenerla
+    # copiada aqui dejo pasar a esta puerta la linea «Exiting with exit code 0» de FFmpeg 8.
+    info="$(mktemp -d)"
+    "$VF_RAIZ/tools/info-binario.sh" "$DIR/ffmpeg" "$info"
+    if ! diff -u "$VF_RAIZ/expected/buildconf-$VF_SISTEMA.txt" "$info/buildconf.txt"; then
         rojo "-buildconf de $VF_SISTEMA no es el de expected/buildconf-$VF_SISTEMA.txt"
     fi
-    rm -f "$real"
-    linea="$("$DIR/ffmpeg" -hide_banner -version | head -1)"
+    linea="$(sed -n 1p "$info/version.txt")"
+    rm -rf "$info"
     [ "$(printf '%s\n' "$linea" | awk '{ print $1, $2, $3 }')" = "ffmpeg version $(vf_version)" ] \
         || rojo "-version dice «$linea»; se espera «ffmpeg version $(vf_version)»"
 fi

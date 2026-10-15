@@ -6,7 +6,8 @@
 //
 // buildconf_sha256 = sha256 de buildconf.txt de info-binario.sh, es decir, de las lineas que siguen a
 // «configuration:» en «ffmpeg -hide_banner -buildconf», sin CR, sin espacios al principio ni al final,
-// sin lineas vacias, cada una terminada en «\n». Es la misma normalizacion que tiene que usar VEATION
+// sin lineas vacias y sin la despedida «Exiting with exit code N» que FFmpeg 8 escribe en stdout tras
+// esa opcion, cada una terminada en «\n». Es la misma normalizacion que tiene que usar VEATION
 // (scripts/comprobar-ffmpeg.mjs) y coincide con el sha256 de expected/buildconf-<sistema>.txt.
 import fs from 'node:fs';
 import path from 'node:path';

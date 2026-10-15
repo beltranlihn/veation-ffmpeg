@@ -17,7 +17,12 @@ if [ "${3:-}" = "--ejecutor" ]; then EJ=( "${4:?falta el ejecutor}" ); fi
 mkdir -p "$DIR"
 
 # ${EJ[@]+...}: con set -u, el bash 3.2 de macOS da «unbound variable» con un array vacio.
-correr() { ${EJ[@]+"${EJ[@]}"} "$FF" -hide_banner "$@" 2>/dev/null | tr -d '\r'; }
+# FFmpeg 8 se despide con «Exiting with exit code N» (av_log nivel VERBOSE). Tras -buildconf, -encoders,
+# -hwaccels... el log va por log_callback_help, que escribe en STDOUT sin mirar el nivel, asi que esa
+# linea sale pegada a la respuesta: la primera build salio con ella como ultima opcion de -buildconf
+# (puerta BC en rojo). No es parte de la respuesta del binario; se quita aqui, el unico normalizador
+# (mac/comprobar.sh usa este mismo volcado).
+correr() { ${EJ[@]+"${EJ[@]}"} "$FF" -hide_banner "$@" 2>/dev/null | tr -d '\r' | sed '/^Exiting with exit code -\{0,1\}[0-9][0-9]*$/d'; }
 
 correr -version > "$DIR/version.txt"
 correr -L > "$DIR/licencia.txt"
