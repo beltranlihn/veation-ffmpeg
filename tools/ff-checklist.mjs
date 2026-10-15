@@ -273,7 +273,12 @@ if (toca('F')) {
       out(a2 && a1 === a2 ? 'OK' : (PERDIDA_DELIBERADA.has(n) && !a2 ? 'SALTADO' : 'FALLO'), 'F' + fi, 'decodifica ' + n + ' igual que el juez' + (a2 ? (a1 === a2 ? '' : ' — fotogramas DISTINTOS') : (PERDIDA_DELIBERADA.has(n) ? ' — no decodifica (perdida deliberada de la v1)' : ' — NO decodifica'))); }
     for (const [n, a, ext] of AU) { fi++; const f = T('c-' + n + '.' + ext); const fab = jz(['-f', 'lavfi', '-i', 'sine=frequency=1000:duration=0.5:sample_rate=48000', ...(a.includes('-ac') ? [] : ['-ac', '2']), ...a, f]); if (fab.code !== 0) { out('SALTADO', 'F' + fi, n + ' — el juez no lo fabrica'); continue; }
       const p1 = pcm(JUEZ, f), p2 = pcm(FF, f); let dmax = -1; if (p1 && p2 && p1.length === p2.length) { dmax = 0; for (let i = 0; i < p1.length; i += 2) dmax = Math.max(dmax, Math.abs(p1.readInt16LE(i) - p2.readInt16LE(i))); }
-      out(dmax >= 0 && dmax <= 2 ? 'OK' : 'FALLO', 'F' + fi, 'decodifica audio ' + n + (dmax >= 0 ? ' (dif. max ' + dmax + ' LSB)' : (p2 ? ' — longitud distinta' : ' — NO decodifica'))); }
+      /* con longitudes distintas, el detalle dice cuantas muestras tiene cada uno y como se parecen en el
+         tramo comun alineado al principio y al final (para saber si sobra relleno delante o detras) */
+      const tramo = (a, b, alFinal) => { const n = Math.min(a.length, b.length), oa = alFinal ? a.length - n : 0, ob = alFinal ? b.length - n : 0; let d = 0; for (let i = 0; i < n; i += 2) d = Math.max(d, Math.abs(a.readInt16LE(oa + i) - b.readInt16LE(ob + i))); return d; };
+      const detalle = !p2 ? ' — NO decodifica' : !p1 ? ' — el juez no lo decodifica' : dmax >= 0 ? ` (dif. max ${dmax} LSB)` :
+        ` — longitud distinta: juez ${p1.length / 2} muestras, candidato ${p2.length / 2}; tramo comun alineado al principio dif. max ${tramo(p1, p2, false)} LSB, al final ${tramo(p1, p2, true)} LSB`;
+      out(dmax >= 0 && dmax <= 2 ? 'OK' : 'FALLO', 'F' + fi, 'decodifica audio ' + n + detalle); }
     const fc = opt('--corpus-salida'); if (fc) fs.writeFileSync(fc, JSON.stringify(corpus, null, 1));   /* paridad Windows <-> Mac en la CI */
   }
 }
