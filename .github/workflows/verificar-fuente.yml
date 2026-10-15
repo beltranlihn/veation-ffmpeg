@@ -161,8 +161,11 @@ jobs:
         working-directory: v/paquete/receta
         run: |
           IMG="$(cd win && source util/vars.sh win64 gpl 8.1 && echo "$TARGET_IMAGE")"
-          docker run --rm --network=none -u "$(id -u):$(id -g)" -e HOME=/tmp -e WINEDEBUG=-all \
-            -v "$PWD":/w -v "$PWD/../../salida":/d -w /w "$IMG" bash tools/info-binario.sh /d/ffmpeg.exe /d/info --ejecutor wine
+          # Prefijo de wine en una carpeta del usuario (como tools/verificar-win.sh): con HOME=/tmp, wine
+          # se niega a crearlo («'/tmp' is not owned by you, refusing to create a configuration directory»).
+          WP="$(mktemp -d)"
+          docker run --rm --network=none -u "$(id -u):$(id -g)" -e HOME=/tmp -e WINEPREFIX=/wp -e WINEDEBUG=-all \
+            -v "$PWD":/w -v "$PWD/../../salida":/d -v "$WP":/wp -w /w "$IMG" bash tools/info-binario.sh /d/ffmpeg.exe /d/info --ejecutor wine
           tools/comparar-buildinfo.sh ../build/BUILDINFO-win.txt ../../salida/info
 
   # Cada control comprueba la CONCLUSION (por que falla), no solo que falla: el mensaje exacto de la

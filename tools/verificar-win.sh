@@ -18,8 +18,9 @@ IMAGEN="$(cd "$RAIZ/win" && source util/vars.sh win64 gpl 8.1 && echo "$TARGET_I
 docker image inspect "$IMAGEN" >/dev/null || { echo "no esta la imagen $IMAGEN (ejecutar antes win/makeimage.sh)" >&2; exit 1; }
 
 # Prefijo de wine propio, fuera de out/ (que se sube como artefacto) y compartido por todos los
-# contenedores: se crea una vez, aqui y a la vista. En la primera build cada contenedor lo creaba en
-# su /tmp y, al fallar wine, solo quedaba un version.txt vacio y un «exit 1» sin mensaje.
+# contenedores: se crea una vez, aqui y a la vista. En la primera build cada contenedor intentaba
+# crearlo en HOME=/tmp y wine se negaba («'/tmp' is not owned by you, refusing to create a configuration
+# directory there»: /tmp es de root); con 2>/dev/null solo quedaba un version.txt vacio y un «exit 1».
 WP="$(mktemp -d)"
 trap 'rm -rf "$WP"' EXIT
 en_imagen() {
