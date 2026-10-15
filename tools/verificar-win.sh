@@ -29,7 +29,8 @@ en_imagen() {
 
 fallos=0
 echo "wine: $(en_imagen wine --version)"
-if ! en_imagen bash -c 'WINEDEBUG=err+all wineboot --init; rc=$?; wineserver -w; exit $rc' > "$DIR/wineboot.log" 2>&1 \
+# (wineserver no esta en el PATH del wine de Ubuntu: se espera a que termine como en win/generate.sh)
+if ! en_imagen bash -c 'WINEDEBUG=err+all wineboot --init; rc=$?; while pgrep -x wineserver >/dev/null; do sleep 1; done; exit $rc' > "$DIR/wineboot.log" 2>&1 \
     || [ ! -f "$WP/system.reg" ]; then
     cat "$DIR/wineboot.log" >&2
     echo "ROJO: wine no crea su prefijo con el usuario $(id -u):$(id -g) (sin wine no hay puertas estaticas)" >&2
