@@ -124,8 +124,10 @@ El Mac se compila **de forma nativa en cada arquitectura** (arm64 en `macos-15`,
 
 ## Primera ejecución (fase 1 del plan, §6)
 
-Nada de esto se ha ejecutado todavía: el repositorio se escribió sin poder compilar (no hay Docker ni
-WSL en el equipo donde se escribió). Orden:
+El repositorio se escribió sin poder compilar (no hay Docker ni WSL en el equipo donde se escribió). Los
+pasos 2 y 3 se hicieron el 2026-10-15: `congelar` (ejecución 38591501114, versionada en `dabb5c5` tras
+comprobar cada valor fuera del runner) y `build` sin etiqueta, en verde en la ejecución 38762945191 (lo
+que midió, en «Lo que midió la primera ejecución»). Orden:
 
 1. **Configurar el repositorio** en GitHub: público, *immutable releases* activadas (Settings › General),
    «Require actions to be pinned to a full-length commit SHA» si está disponible, sin secretos.
@@ -137,7 +139,7 @@ WSL en el equipo donde se escribió). Orden:
 3. **Compilar** con Actions › `build` › Run workflow (sin etiqueta: no publica; con `verificar_fuente`,
    que viene marcado, reconstruye además desde el paquete de fuente y pasa sus controles negativos). Lo
    esperable en la primera vuelta es que alguna puerta salga en rojo por algo que no se ha podido medir
-   aquí (ver «SIN VERIFICAR»); se corrige y se repite. Las DLL que importe de verdad el binario pueden pedir
+   aquí (ver «Sigue sin verificar»); se corrige y se repite. Las DLL que importe de verdad el binario pueden pedir
    ampliar `expected/dll-sistema.txt` (solo con DLL del sistema: el job de Windows lo mide contra el
    System32 real).
 4. **Revisar los avisos**: leer los textos de `out/avisos/licencias/` (artefacto `release`) y copiar
@@ -154,33 +156,44 @@ WSL en el equipo donde se escribió). Orden:
    pre-release, comprueba que quedó inmutable y que lo publicado es byte a byte lo verificado. Después,
    `verificar-fuente` vuelve a reconstruir la última release una vez al mes (o a mano).
 
-## SIN VERIFICAR hasta la primera ejecución en Actions
+## Lo que midió la primera ejecución (build 38762945191, 2026-10-15)
 
-Lo que se ha comprobado leyendo el fuente de cada versión del lock, pero que solo la CI puede medir:
+Todas las puertas en verde, salvo la I (Intel SDE), que sale NO MEDIDA mientras `sde-win` siga PENDIENTE.
 
-- **Windows.** Que `-hwaccels` liste `amf` (B4 lo exige) y que `-filters` traiga `ddagrab` y, si las
-  cabeceras de mingw-w64 lo permiten, `gfxcapture` (permitidos en la paridad); que configure no dé ningún
-  `WARNING` (AV2: los dos de `pcm_*_at` desaparecen con la lista PCM por nombre); que la caché `gha` acierte
-  en las etapas de bibliotecas en la segunda ejecución (tar determinista de `download.sh`: buscar `CACHED`
-  en el log); crosstool-ng compilado desde su archivo (`bootstrap` sin `.git`, `.tarball-version`, `ct-ng
-  version`) y su compilación entera sin red; el mensaje `gcc: download failed` del control negativo de la
-  toolchain; las rutas reales del runtime en `linked-win.txt` (atribución a gcc / mingw-w64 y puerta L4,
-  que pone en rojo lo de `lib/gcc/` que no esté en la lista de gcc y lo prohibido; probada aquí con
-  trazas sintéticas, no con la de GNU ld real).
-- **Mac.** meson 1.11.2 con el Python 3.9.6 de Xcode 16.4 (`mac/herramientas.sh` exige la versión del lock
-  a cada herramienta; esa red se ha visto en rojo aquí con la salida de meson 1.12.1 simulada, no en un
-  Mac); el shim `libstdc++.tbd` y `STL_LIBS=-lc++` en zimg; que el enlazador de Xcode 16.4
-  avise de un objeto con `minos` 14.0 enlazado a 13.0 (si no, `mac/ffmpeg.sh` para y lo dice); `sandbox-exec`
-  sin red también en `build`; que `macos-15` tenga Rosetta (si no, la F de la rodaja x86_64 sale NO MEDIDA)
-  y que Homebrew siga teniendo bottle de `ffmpeg@8` para arm64.
-- **Workflows.** `verificar-fuente` llamado desde `build` con el artefacto `release` de la misma
-  ejecución; que sus controles negativos salgan verdes por su motivo exacto (snappy en las tres
-  extracciones, gcc en crosstool-ng) y rojos si el fallo es otro (para verlo: una vez con el paquete
-  completo y otra quitando otra pieza); el campo `immutable` de la API de releases; la descarga de lo
-  publicado contra `SHA256SUMS`.
-- **Avisos.** Que cada ruta nueva de `notices/*/pieza.conf` exista en su versión (si no, `avisos.mjs
-  textos` sale en rojo) y que ScanCode reconozca en los textos las licencias que detecta en el fuente
-  (IJG, ISC...); el escaneo de libgcc, libstdc++, el CRT y winpthreads.
+- **Windows.** `-hwaccels` lista `amf`; `-filters` trae `ddagrab` y `gfxcapture`; configure no da ningún
+  `WARNING`; crosstool-ng se compila desde su archivo y la toolchain entera sin red (sin el tarball de
+  GCC falla con `gcc: download failed`). La traza real del enlazador (`--trace` dos veces: archivos
+  abiertos y miembros usados) da L4 en verde: el configure de FFmpeg 8.1.3 añade `-latomic` y GNU ld abre
+  `libatomic.a`, pero no enlaza ningún miembro suyo. wine necesita un prefijo propio (`WINEPREFIX`): con
+  `HOME=/tmp` se niega a crearlo. `windows-2025` trae Media Foundation (la «edición N» no se ejercita en la
+  CI) y Defender, que no marca los binarios.
+- **Mac.** meson 1.11.2 con el Python de Xcode 16.4, el shim de `libstdc++.tbd`, `STL_LIBS=-lc++` en
+  zimg, el centinela de `minos` y `sandbox-exec` sin red, en las dos arquitecturas; `macos-15` tiene
+  Rosetta. El juez es `ffmpeg@8`: la fórmula `ffmpeg` ya es 9.0.x y recorta el relleno final del AAC que
+  el 8.1 deja. Entre arquitecturas distintas (la rodaja x86_64 contra el juez arm64, y la paridad P6) se
+  decodifica en modo reproducible (`-flags +bitexact -idct simple`): por defecto, la IDCT de NEON y la ICT
+  de SSE/FMA no dan los mismos bits, y FFmpeg no lo promete. En macOS, una variable sin llaves seguida de
+  un carácter no ASCII rompe bash; `tools/comprobar-repo.sh` lo vigila.
+- **Workflows.** `verificar-fuente`, llamado desde `build` con el artefacto `release`, reconstruye en las
+  tres arquitecturas e iguala `-version`, `-buildconf`, `-encoders` y `-decoders`; los controles negativos
+  salen rojos por su motivo exacto (snappy en las tres extracciones, gcc en crosstool-ng).
+- **Tiempos.** Imágenes de Windows (toolchain y bibliotecas) unos 70 min y FFmpeg 7 min; Mac arm64 10
+  min y x86_64 entre 35 y 40; `verificar-fuente` / win, en frío, 1 h 40 min; la ejecución entera, unas 3 h 10 min.
+- **Binarios.** `ffmpeg.exe` 70,7 MB y `ffprobe.exe` 70,5 MB; `ffmpeg` universal 96,7 MB (arm64 37 MB +
+  x86_64 59 MB); paquete de fuente 253 MB. No son reproducibles byte a byte entre ejecuciones (cambia el
+  sha256; `-buildconf`, `-encoders` y `-decoders` son los mismos, que es lo que compara `verificar-fuente`).
+
+## Sigue sin verificar
+
+- **Caché `gha`.** No acierta: en las ejecuciones 38715153887, 38728167219 y 38735917913, con las
+  mismas fuentes (`MANIFIESTO.tsv` idéntico), el paso de crosstool-ng de `base-win64` se volvió a compilar
+  entero, y con él todas las bibliotecas. Hoy cada ejecución compila las imágenes de Windows en frío; la causa está por encontrar.
+- **Releases.** El campo `immutable` de la API y la descarga de lo publicado contra `SHA256SUMS` (solo
+  con etiqueta).
+- **Avisos.** Las rutas de `notices/*/pieza.conf` existen en sus versiones (`avisos.mjs textos`, 0
+  problemas; 44 textos esperan su revisión a mano). Falta que ScanCode reconozca en los textos las licencias
+  que detecta en el fuente (IJG, ISC...) y el escaneo de libgcc, libstdc++, el CRT y winpthreads (`build`
+  con `scancode: true`).
 - **Instalador.** Que `Nsis7z_19.00.7z` traiga el fuente (el workflow falla si no) y que la etiqueta 1.14
   de StdUtils sea el fuente de la DLL 1.1.4.0 de electron-builder (los binarios no son reproducibles).
 
