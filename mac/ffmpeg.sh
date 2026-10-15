@@ -77,7 +77,7 @@ env -u CFLAGS -u LDFLAGS -u MACOSX_DEPLOYMENT_TARGET clang -mmacosx-version-min=
 env -u CFLAGS -u LDFLAGS -u MACOSX_DEPLOYMENT_TARGET clang -mmacosx-version-min=13.0 "$cen/c.o" -o "$cen/c" > "$cen/ld.log" 2>&1 || true
 if ! grep -Eq "$AVISO_MINOS" "$cen/ld.log"; then
     cat "$cen/ld.log" >&2
-    vf_die "el centinela de minos no caza el aviso real del enlazador: revisar el patron «$AVISO_MINOS»"
+    vf_die "el centinela de minos no caza el aviso real del enlazador: revisar el patron «${AVISO_MINOS}»"
 fi
 rm -rf "$cen"
 if grep -Eq "$AVISO_MINOS" "$SALIDA/enlazado-avisos.log" "$SALIDA/enlazado.log"; then

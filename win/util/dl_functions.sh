@@ -20,11 +20,11 @@ vf_extraer() {
     local pieza="$1" destino="$2" id="$3" fila archivo sha
     fila="$(awk -F'\t' -v p="$pieza" '$1 == p' /fuentes/MANIFIESTO.tsv)"
     if [[ -z "$fila" ]]; then
-        echo "vf_extraer: «$pieza» no esta en fuentes/MANIFIESTO.tsv" >&2
+        echo "vf_extraer: «${pieza}» no esta en fuentes/MANIFIESTO.tsv" >&2
         return 1
     fi
     if [[ "$(cut -f5 <<<"$fila")" != "$id" ]]; then
-        echo "vf_extraer: la identidad de «$pieza» en el script ($id) no es la de las fuentes ($(cut -f5 <<<"$fila")); ejecutar tools/aplicar-lock.sh" >&2
+        echo "vf_extraer: la identidad de «${pieza}» en el script ($id) no es la de las fuentes ($(cut -f5 <<<"$fila")); ejecutar tools/aplicar-lock.sh" >&2
         return 1
     fi
     archivo="/fuentes/$(cut -f6 <<<"$fila")"

@@ -93,14 +93,14 @@ congelar_git() {
         commit="$(commit_de_etiqueta "$url" "$ref")"
         [ -n "$commit" ] || vf_die "$pieza: la etiqueta $ref no existe en $url"
     fi
-    printf '%s' "$commit" | grep -Eq '^[0-9a-f]{40}$' || vf_die "$pieza: commit invalido «$commit»"
+    printf '%s' "$commit" | grep -Eq '^[0-9a-f]{40}$' || vf_die "$pieza: commit invalido «${commit}»"
     anotar "$pieza" commit "$commit"
 }
 
 congelar_archivo() {
     local pieza="$1" url archivo gpg firma clave contenido ruta esperado real
     url="$(vf_lock_campo "$pieza" origen)"
-    [ "$url" = PENDIENTE ] && { vf_log "AVISO: «$pieza» sin URL (lo tiene que fijar una persona)"; return 0; }
+    [ "$url" = PENDIENTE ] && { vf_log "AVISO: «${pieza}» sin URL (lo tiene que fijar una persona)"; return 0; }
     hace_falta "$pieza" sha256 || return 0
     archivo="$TMP/$(basename "$url")"
     vf_descargar "$url" "$archivo"
@@ -130,7 +130,7 @@ congelar_oci() {
     # mensaje (pipefail + set -e: congelar paraba en seco tras la ultima pieza anterior).
     docker buildx imagetools inspect "$imagen" > "$TMP/oci-$pieza.txt"
     digest="$(awk '$1 == "Digest:" { print $2; exit }' "$TMP/oci-$pieza.txt")"
-    printf '%s' "$digest" | grep -Eq '^sha256:[0-9a-f]{64}$' || vf_die "$pieza: digest invalido «$digest»"
+    printf '%s' "$digest" | grep -Eq '^sha256:[0-9a-f]{64}$' || vf_die "$pieza: digest invalido «${digest}»"
     anotar "$pieza" digest "$digest"
 }
 

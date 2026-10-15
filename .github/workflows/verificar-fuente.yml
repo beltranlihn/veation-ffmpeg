@@ -65,7 +65,7 @@ jobs:
         run: |
           if [ -n "$ARTEFACTO" ]; then
             echo "tag=" >> "$GITHUB_OUTPUT"
-            echo "Paquete: artefacto «$ARTEFACTO» de esta ejecucion (antes de publicar)" >> "$GITHUB_STEP_SUMMARY"
+            echo "Paquete: artefacto «${ARTEFACTO}» de esta ejecucion (antes de publicar)" >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           tag="$ENTRADA"

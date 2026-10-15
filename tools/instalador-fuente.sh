@@ -26,38 +26,38 @@ lista=""
 
 for pieza in $(vf_lock_piezas "" instalador); do
     url="$(vf_lock_campo "$pieza" origen)"; ref="$(vf_lock_campo "$pieza" ref)"
-    [ "$url" != PENDIENTE ] || vf_die "«$pieza» sin origen en el lock"
+    [ "$url" != PENDIENTE ] || vf_die "«${pieza}» sin origen en el lock"
     case "$(vf_lock_campo "$pieza" tipo)" in
         git)
             commit="$(vf_lock_campo "$pieza" commit)"
-            case "$commit" in PENDIENTE|"") vf_die "«$pieza» sin commit (congelar primero)" ;; esac
+            case "$commit" in PENDIENTE|"") vf_die "«${pieza}» sin commit (congelar primero)" ;; esac
             g="$TMP/git-$pieza"; git init -q "$g"
             git -C "$g" fetch -q --depth=1 "$url" "$commit"
             git -C "$g" -c advice.detachedHead=false checkout -q --detach FETCH_HEAD
-            [ "$(git -C "$g" rev-parse HEAD)" = "$commit" ] || vf_die "«$pieza»: el commit descargado no es el del lock"
+            [ "$(git -C "$g" rev-parse HEAD)" = "$commit" ] || vf_die "«${pieza}»: el commit descargado no es el del lock"
             remoto="$(git ls-remote "$url" "refs/tags/$ref^{}" "refs/tags/$ref" | awk 'NR == 1 || /\^\{\}$/ { c = $1 } END { print c }')"
-            [ -z "$remoto" ] || [ "$remoto" = "$commit" ] || vf_die "«$pieza»: la etiqueta $ref apunta ahora a $remoto (¿movida?)"
+            [ -z "$remoto" ] || [ "$remoto" = "$commit" ] || vf_die "«${pieza}»: la etiqueta $ref apunta ahora a $remoto (¿movida?)"
             e="$(git -C "$g" log -1 --format=%ct HEAD)"; if [ "$e" -gt "$EPOCH" ]; then EPOCH="$e"; fi
             rm -rf "$g/.git"; mv "$g" "$P/$pieza-$ref-${commit:0:12}"
             lista="$lista$pieza $ref: $url @ $commit"$'\n'
             ;;
         tarball)
             sha="$(vf_lock_campo "$pieza" sha256)"
-            case "$sha" in PENDIENTE|"") vf_die "«$pieza» sin sha256 (congelar primero)" ;; esac
+            case "$sha" in PENDIENTE|"") vf_die "«${pieza}» sin sha256 (congelar primero)" ;; esac
             a="$P/$(basename "$url")"
             vf_descargar "$url" "$a"
-            [ "$(vf_sha256 "$a")" = "$sha" ] || vf_die "«$pieza»: el sha256 de $(basename "$a") no es el del lock"
+            [ "$(vf_sha256 "$a")" = "$sha" ] || vf_die "«${pieza}»: el sha256 de $(basename "$a") no es el del lock"
             case "$a" in
                 *.7z)
                     command -v 7z >/dev/null || vf_die "falta 7z para comprobar $(basename "$a")"
                     n="$(7z l -slt "$a" | awk -F' = ' '$1 == "Path" && $2 ~ /\.(c|cc|cpp|h|hpp)$/ { n++ } END { print n + 0 }')"
-                    [ "$n" -gt 0 ] || vf_die "«$pieza»: $(basename "$a") no trae fuente (ningun .c/.cpp/.h): pedirlo al autor antes de publicar"
-                    vf_log "«$pieza»: $(basename "$a") trae $n archivo(s) de fuente"
+                    [ "$n" -gt 0 ] || vf_die "«${pieza}»: $(basename "$a") no trae fuente (ningun .c/.cpp/.h): pedirlo al autor antes de publicar"
+                    vf_log "«${pieza}»: $(basename "$a") trae $n archivo(s) de fuente"
                     ;;
             esac
             lista="$lista$pieza $ref: $url (sha256 $sha)"$'\n'
             ;;
-        *) vf_die "«$pieza»: tipo no admitido" ;;
+        *) vf_die "«${pieza}»: tipo no admitido" ;;
     esac
 done
 [ -n "$lista" ] || vf_die "no hay filas rol:instalador en versions.lock"

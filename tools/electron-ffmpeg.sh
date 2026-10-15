@@ -30,7 +30,7 @@ TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 # 1. Electron -> Chromium
 vf_curl "https://raw.githubusercontent.com/electron/electron/v$E/DEPS" -o "$TMP/electron-DEPS"
 cv="$(tr -d ' \n' < "$TMP/electron-DEPS" | grep -o "'chromium_version':'[0-9.]*'" | head -1 | cut -d"'" -f4)"
-[ "$cv" = "$C" ] || vf_die "Electron v$E usa Chromium «$cv», no $C"
+[ "$cv" = "$C" ] || vf_die "Electron v$E usa Chromium «${cv}», no $C"
 vf_log "Electron v$E -> Chromium $C"
 
 # 2. Chromium -> revision de third_party/ffmpeg

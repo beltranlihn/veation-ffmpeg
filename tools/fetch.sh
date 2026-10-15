@@ -25,12 +25,12 @@ bajar_tarball() {
     url="$(vf_lock_campo "$pieza" origen)"
     sha="$(vf_lock_campo "$pieza" sha256)"
     destino="$DIR/tar/$(basename "$url")"
-    case "$sha" in PENDIENTE|"") vf_die "«$pieza» sin sha256 en el lock (congelar primero)" ;; esac
+    case "$sha" in PENDIENTE|"") vf_die "«${pieza}» sin sha256 en el lock (congelar primero)" ;; esac
     if [ ! -f "$destino" ] || [ "$(vf_sha256 "$destino")" != "$sha" ]; then
         vf_descargar "$url" "$destino.part"
         mv "$destino.part" "$destino"
     fi
-    [ "$(vf_sha256 "$destino")" = "$sha" ] || vf_die "«$pieza»: sha256 de $(basename "$url") distinto del lock"
+    [ "$(vf_sha256 "$destino")" = "$sha" ] || vf_die "«${pieza}»: sha256 de $(basename "$url") distinto del lock"
     gpg="$(vf_lock_campo "$pieza" gpg)"; firma="$(vf_lock_campo "$pieza" firma)"
     [ -z "$gpg" ] || verificar_firma "$destino" "$firma" "$gpg" "$(vf_lock_campo "$pieza" clave)"
     vf_log "ok $pieza: $(basename "$url") sha256 $sha"
@@ -42,7 +42,7 @@ bajar_git() {
     ref="$(vf_lock_campo "$pieza" ref)"
     commit="$(vf_lock_campo "$pieza" commit)"
     solo="$(vf_lock_campo "$pieza" solo)"
-    case "$commit" in PENDIENTE|"") vf_die "«$pieza» sin commit en el lock (congelar primero)" ;; esac
+    case "$commit" in PENDIENTE|"") vf_die "«${pieza}» sin commit en el lock (congelar primero)" ;; esac
     arbol="$DIR/arbol/$pieza"
     rm -rf "$arbol" "$arbol.git"; mkdir -p "$arbol.git"
     git -C "$arbol.git" init -q
@@ -52,18 +52,18 @@ bajar_git() {
         || git -C "$arbol.git" fetch -q --depth=1 origin "refs/tags/$ref:refs/tags/$ref" 2>/dev/null \
         || git -C "$arbol.git" fetch -q origin
     git -C "$arbol.git" -c advice.detachedHead=false checkout -q --detach "$commit"
-    [ "$(git -C "$arbol.git" rev-parse HEAD)" = "$commit" ] || vf_die "«$pieza»: el commit descargado no es el del lock"
+    [ "$(git -C "$arbol.git" rev-parse HEAD)" = "$commit" ] || vf_die "«${pieza}»: el commit descargado no es el del lock"
     # Si ref es una etiqueta, que siga apuntando a ese commit
     remoto="$(git ls-remote "$url" "refs/tags/$ref^{}" "refs/tags/$ref" | awk 'NR == 1 || /\^\{\}$/ { c = $1 } END { print c }')"
     if [ -n "$remoto" ] && [ "$remoto" != "$commit" ]; then
-        vf_die "«$pieza»: la etiqueta $ref apunta ahora a $remoto y el lock dice $commit (¿etiqueta movida?)"
+        vf_die "«${pieza}»: la etiqueta $ref apunta ahora a $remoto y el lock dice $commit (¿etiqueta movida?)"
     fi
     git -C "$arbol.git" log -1 --format=%ct HEAD > "$arbol.epoch"
     if [ -n "$solo" ]; then
         mkdir -p "$arbol"
         local IFS=,
         for p in $solo; do
-            [ -e "$arbol.git/$p" ] || vf_die "«$pieza»: la ruta $p de solo: no existe en $ref"
+            [ -e "$arbol.git/$p" ] || vf_die "«${pieza}»: la ruta $p de solo: no existe en $ref"
             mkdir -p "$arbol/$(dirname "$p")"
             cp -R "$arbol.git/$p" "$arbol/$p"
         done
@@ -80,7 +80,7 @@ for pieza in $(vf_lock_piezas "" fuente,toolchain); do
     case "$(vf_lock_campo "$pieza" tipo)" in
         git)     bajar_git "$pieza" ;;
         tarball) bajar_tarball "$pieza" ;;
-        *) vf_die "«$pieza»: tipo no descargable" ;;
+        *) vf_die "«${pieza}»: tipo no descargable" ;;
     esac
 done
 vf_log "todo descargado y verificado en $DIR"

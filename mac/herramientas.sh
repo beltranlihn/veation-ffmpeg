@@ -24,13 +24,13 @@ bajar() {
     local pieza="$1" url sha destino
     url="$(vf_lock_campo "$pieza" origen)"
     sha="$(vf_lock_campo "$pieza" sha256)"
-    case "$sha" in PENDIENTE|"") vf_die "«$pieza» sin sha256 en el lock (congelar primero)" ;; esac
+    case "$sha" in PENDIENTE|"") vf_die "«${pieza}» sin sha256 en el lock (congelar primero)" ;; esac
     destino="$VF_DESCARGAS/$(basename "$url")"
     if [ ! -f "$destino" ] || [ "$(vf_sha256 "$destino")" != "$sha" ]; then
         vf_descargar "$url" "$destino.part"
         mv "$destino.part" "$destino"
     fi
-    [ "$(vf_sha256 "$destino")" = "$sha" ] || vf_die "«$pieza»: el sha256 de $(basename "$url") no es el del lock"
+    [ "$(vf_sha256 "$destino")" = "$sha" ] || vf_die "«${pieza}»: el sha256 de $(basename "$url") no es el del lock"
     printf '%s\n' "$destino"
 }
 
@@ -86,12 +86,12 @@ fi
 version_de() {
     local pieza="$1" ref salida; shift
     ref="$(vf_lock_campo "$pieza" ref)"
-    salida="$("$@" 2>&1)" || vf_die "«$pieza»: «$*» fallo: $(printf '%s\n' "$salida" | head -3 | tr '\n' ' ')"
+    salida="$("$@" 2>&1)" || vf_die "«${pieza}»: «$*» fallo: $(printf '%s\n' "$salida" | head -3 | tr '\n' ' ')"
     # la version tiene que aparecer como palabra entera (3.31.9 no vale para 3.31.90). Sin «grep -q» ni
     # «head»: con pipefail, un lector que cierra antes de tiempo puede dar SIGPIPE al que escribe y un
     # falso rojo; grep y sed leen hasta el final.
     printf '%s\n' "$salida" | tr -c '0-9.\n' ' ' | tr ' ' '\n' | grep -xF -- "$ref" > /dev/null \
-        || vf_die "«$pieza»: «$*» dice «$(printf '%s\n' "$salida" | sed -n 1p)» y el lock pide $ref"
+        || vf_die "«${pieza}»: «$*» dice «$(printf '%s\n' "$salida" | sed -n 1p)» y el lock pide $ref"
     printf '%s\n' "$salida" | sed -n 1p
 }
 v_cmake="$(version_de cmake-mac cmake --version)"

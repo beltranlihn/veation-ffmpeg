@@ -33,6 +33,18 @@ tools/piezas.sh comprobar || fallos=$((fallos + 1))
 tools/modificaciones.sh || fallos=$((fallos + 1))
 
 for f in $(git ls-files '*.ps1'); do iconv -f ASCII -t ASCII "$f" >/dev/null 2>&1 || rojo "$f no es ASCII"; done
+
+# Una variable sin llaves seguida de un caracter no ASCII (el cierre de comillas tras $pieza, por
+# ejemplo, en un mensaje de error): en macOS, bash toma el primer byte del caracter
+# como parte del nombre (el isalnum de macOS lo acepta en UTF-8) y el mensaje se convierte en «pieza?:
+# unbound variable». Asi salio el control-negativo-mac de la build 38735917913. Se escribe ${pieza}.
+pegadas="$(node -e '
+  const fs = require("fs"); let n = [];
+  for (const f of process.argv.slice(1)) fs.readFileSync(f, "utf8").split("\n").forEach((l, i) => {
+    if (/\$[A-Za-z_][A-Za-z0-9_]*[^\x00-\x7f]/.test(l)) n.push(f + ":" + (i + 1));
+  });
+  console.log(n.join(" "));' $(git ls-files '*.sh' '.github/workflows/*.yml'))"
+[ -z "$pegadas" ] || rojo "variable pegada a un caracter no ASCII (escribir \${nombre}): $pegadas"
 for f in $(git ls-files); do [ -f "$f" ] && grep -Iq $'\r' "$f" && rojo "$f tiene CRLF"; done
 
 [ "$fallos" -eq 0 ] || vf_die "$fallos comprobacion(es) en rojo"

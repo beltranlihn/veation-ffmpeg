@@ -33,4 +33,11 @@ jobs:
           sed -i -E '/^xz /s/ 5\.8\.4 / 5.6.1 /' versions.lock
           if tools/lock.sh comprobar --formato 2>/dev/null; then echo "ROJO: lock.sh no caza xz 5.6.1"; exit 1; fi
           git checkout -- versions.lock
-          echo "OK: los tres controles rojos salen rojos"
+          # macOS: una variable sin llaves pegada a un caracter no ASCII tiene que salir roja, y por eso
+          # (en mac/universal.sh, que comprobar-repo no ejecuta; las comillas angulares van en octal porque,
+          # escritas tal cual, esta misma linea saldria roja)
+          printf 'vf_log "\302\253$x\302\273"\n' >> mac/universal.sh
+          if tools/comprobar-repo.sh 2> err.txt; then echo "ROJO: comprobar-repo no caza una variable pegada a un caracter no ASCII"; exit 1; fi
+          grep -q 'variable pegada a un caracter no ASCII' err.txt || { echo "ROJO: fallo, pero por otra cosa:"; cat err.txt; exit 1; }
+          git checkout -- mac/universal.sh
+          echo "OK: los cuatro controles rojos salen rojos"

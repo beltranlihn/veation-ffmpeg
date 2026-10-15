@@ -82,7 +82,7 @@ vf_lock_campo() {
             exit
         }
         END { if (!encontrada) exit 3 }' "$VF_LOCK")" || {
-        [ $? -eq 3 ] && vf_die "la pieza «$pieza» no esta en versions.lock"
+        [ $? -eq 3 ] && vf_die "la pieza «${pieza}» no esta en versions.lock"
         return 1
     }
     printf '%s\n' "$salida"
@@ -113,7 +113,7 @@ vf_archivo_fuente() {
     case "$rol" in
         toolchain) carpeta="toolchain-win" ;;
         fuente)    carpeta="bibliotecas" ;;
-        *) vf_die "«$pieza» (rol $rol) no forma parte de las fuentes" ;;
+        *) vf_die "«${pieza}» (rol $rol) no forma parte de las fuentes" ;;
     esac
     [ "$pieza" = ffmpeg ] && carpeta="ffmpeg"
     case "$tipo" in
@@ -126,7 +126,7 @@ vf_archivo_fuente() {
             printf '%s/%s-%s-%s.tar.xz\n' "$carpeta" "$pieza" "$ref" "${commit:0:12}" ;;
         tarball)
             printf '%s/%s\n' "$carpeta" "$(basename "$(vf_lock_campo "$pieza" origen)")" ;;
-        *) vf_die "«$pieza» es de tipo $tipo: no tiene archivo de fuente" ;;
+        *) vf_die "«${pieza}» es de tipo $tipo: no tiene archivo de fuente" ;;
     esac
 }
 
@@ -139,7 +139,7 @@ vf_extraer() {
     local fuentes="$1" pieza="$2" destino="$3" fila id archivo sha esperado
     [ -f "$fuentes/MANIFIESTO.tsv" ] || vf_die "falta $fuentes/MANIFIESTO.tsv"
     fila="$(awk -F'\t' -v p="$pieza" '$1 == p' "$fuentes/MANIFIESTO.tsv")"
-    [ -n "$fila" ] || vf_die "«$pieza» no esta en $fuentes/MANIFIESTO.tsv"
+    [ -n "$fila" ] || vf_die "«${pieza}» no esta en $fuentes/MANIFIESTO.tsv"
     id="$(printf '%s\n' "$fila" | cut -f5)"
     archivo="$fuentes/$(printf '%s\n' "$fila" | cut -f6)"
     sha="$(printf '%s\n' "$fila" | cut -f7)"
@@ -147,9 +147,9 @@ vf_extraer() {
         git) esperado="$(vf_lock_campo "$pieza" commit)" ;;
         *)   esperado="$(vf_lock_campo "$pieza" sha256)" ;;
     esac
-    [ "$id" = "$esperado" ] || vf_die "«$pieza»: las fuentes traen $id y el lock pide $esperado"
-    [ -f "$archivo" ] || vf_die "«$pieza»: falta el archivo $archivo"
-    [ "$(vf_sha256 "$archivo")" = "$sha" ] || vf_die "«$pieza»: el sha256 de $archivo no es el del manifiesto"
+    [ "$id" = "$esperado" ] || vf_die "«${pieza}»: las fuentes traen $id y el lock pide $esperado"
+    [ -f "$archivo" ] || vf_die "«${pieza}»: falta el archivo $archivo"
+    [ "$(vf_sha256 "$archivo")" = "$sha" ] || vf_die "«${pieza}»: el sha256 de $archivo no es el del manifiesto"
     rm -rf "$destino"
     mkdir -p "$destino"
     tar -xf "$archivo" -C "$destino" --strip-components=1

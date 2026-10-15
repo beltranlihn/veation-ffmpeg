@@ -18,7 +18,7 @@ J="$(brew --prefix "$FORMULA")/bin/ffmpeg"
 v="$("$J" -hide_banner -version | sed -n 1p)"
 case "$v" in
     "ffmpeg version $RAMA."*|"ffmpeg version $RAMA") ;;
-    *) vf_die "el juez dice «$v» y el candidato es FFmpeg $RAMA: un juez de otra rama no sirve para la puerta F" ;;
+    *) vf_die "el juez dice «${v}» y el candidato es FFmpeg $RAMA: un juez de otra rama no sirve para la puerta F" ;;
 esac
 vf_log "juez: $J ($v)"
 if [ -n "${GITHUB_ENV:-}" ]; then echo "JUEZ=$J" >> "$GITHUB_ENV"; else echo "$J"; fi

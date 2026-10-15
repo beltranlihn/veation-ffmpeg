@@ -31,11 +31,11 @@ for b in ffmpeg ffprobe; do
 
     reales="$(lipo -archs "$f")"
     [ "$(echo $reales | tr ' ' '\n' | sort | tr '\n' ' ')" = "$(echo $ARCHS | tr ' ' '\n' | sort | tr '\n' ' ')" ] \
-        || rojo "$b tiene arquitecturas «$reales» y se esperaba «$ARCHS»"
+        || rojo "$b tiene arquitecturas «${reales}» y se esperaba «${ARCHS}»"
 
     for a in $reales; do
         minos="$(vtool -arch "$a" -show-build "$f" | awk '$1 == "minos" { print $2 }' | sort -u)"
-        [ "$minos" = "$MACOS_MIN" ] || rojo "$b ($a): minos «$minos», se pide $MACOS_MIN"
+        [ "$minos" = "$MACOS_MIN" ] || rojo "$b ($a): minos «${minos}», se pide $MACOS_MIN"
     done
 
     codesign --verify --strict --verbose=2 "$f" || rojo "$b: la firma no verifica"
@@ -53,7 +53,7 @@ if echo " $ARCHS " | grep -q " $VF_ARCH "; then
     linea="$(sed -n 1p "$info/version.txt")"
     rm -rf "$info"
     [ "$(printf '%s\n' "$linea" | awk '{ print $1, $2, $3 }')" = "ffmpeg version $(vf_version)" ] \
-        || rojo "-version dice «$linea»; se espera «ffmpeg version $(vf_version)»"
+        || rojo "-version dice «${linea}»; se espera «ffmpeg version $(vf_version)»"
 fi
 
 [ "$fallos" -eq 0 ] || vf_die "$fallos puerta(s) en rojo en $DIR"

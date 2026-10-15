@@ -55,13 +55,13 @@ for script in "$SCRIPTS_DIR"/*.sh "$SCRIPTS_DIR"/*/*.sh; do
         fallos=$((fallos + 1)); continue
     fi
     if [ "$pieza" != "-" ]; then
-        sistemas="$(vf_lock_campo "$pieza" sistemas 2>/dev/null)" || { vf_log "$rel: la pieza «$pieza» no esta en versions.lock"; fallos=$((fallos + 1)); continue; }
-        case ",$sistemas," in *,win,*) ;; *) vf_log "$rel: «$pieza» no es una pieza de Windows en el lock ($sistemas)"; fallos=$((fallos + 1)); continue ;; esac
+        sistemas="$(vf_lock_campo "$pieza" sistemas 2>/dev/null)" || { vf_log "$rel: la pieza «${pieza}» no esta en versions.lock"; fallos=$((fallos + 1)); continue; }
+        case ",$sistemas," in *,win,*) ;; *) vf_log "$rel: «${pieza}» no es una pieza de Windows en el lock ($sistemas)"; fallos=$((fallos + 1)); continue ;; esac
         id="$(vf_lock_campo "$pieza" commit)$(vf_lock_campo "$pieza" sha256)"
         case "$id" in
             *PENDIENTE*)
                 if [ "$comprobar" -eq 1 ] && [ "$formato" -eq 0 ]; then
-                    vf_log "$rel: «$pieza» sigue PENDIENTE en el lock"
+                    vf_log "$rel: «${pieza}» sigue PENDIENTE en el lock"
                     fallos=$((fallos + 1))
                 fi ;;
         esac
@@ -96,7 +96,7 @@ for p in $(vf_lock_piezas win fuente) mingw-w64; do
     n=0
     for u in $usadas; do [ "$u" = "$p" ] && n=$((n + 1)); done
     if [ "$n" -ne 1 ]; then
-        vf_log "la pieza «$p» tiene $n script(s) en win/scripts.d (tiene que tener 1)"
+        vf_log "la pieza «${p}» tiene $n script(s) en win/scripts.d (tiene que tener 1)"
         fallos=$((fallos + 1))
     fi
 done

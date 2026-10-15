@@ -243,7 +243,7 @@ FF_CONFIGURE="$(xargs <<< "$FF_CONFIGURE")"
 PIEZAS_ARGS="$(../tools/piezas.sh args win)"
 for opt in $FF_CONFIGURE; do
     if ! grep -qxF -- "$opt" <<< "$PIEZAS_ARGS"; then
-        echo "ERROR: un script de scripts.d pide «$opt», que no esta en piezas.conf" >&2
+        echo "ERROR: un script de scripts.d pide «${opt}», que no esta en piezas.conf" >&2
         exit 1
     fi
 done

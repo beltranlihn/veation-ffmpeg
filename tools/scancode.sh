@@ -48,7 +48,7 @@ for pieza in $(vf_lock_piezas "" fuente) gcc mingw-w64; do
     vf_extraer "$FUENTES" "$pieza" "$TMP/arbol"
     rm -rf "$TMP/escanear"; mkdir -p "$TMP/escanear"
     for s in $(subarboles "$pieza"); do
-        [ -e "$TMP/arbol/$s" ] || vf_die "«$pieza»: no existe $s en su fuente"
+        [ -e "$TMP/arbol/$s" ] || vf_die "«${pieza}»: no existe $s en su fuente"
         if [ "$s" = . ]; then rm -rf "$TMP/escanear"; mv "$TMP/arbol" "$TMP/escanear"; break; fi
         mkdir -p "$TMP/escanear/$(dirname "$s")"; mv "$TMP/arbol/$s" "$TMP/escanear/$s"
     done

@@ -30,7 +30,7 @@ for script in "$VF_RAIZ"/mac/deps/[0-9][0-9]-*.sh; do
     . "$script"
     [ -n "$PIEZA" ] || vf_die "$script no define PIEZA"
     if [ -n "$SOLO" ] && [ "$PIEZA" != "$SOLO" ]; then continue; fi
-    case ",$(vf_lock_campo "$PIEZA" sistemas)," in *,mac,*) ;; *) vf_die "$script: «$PIEZA» no es una pieza del Mac en el lock" ;; esac
+    case ",$(vf_lock_campo "$PIEZA" sistemas)," in *,mac,*) ;; *) vf_die "$script: «${PIEZA}» no es una pieza del Mac en el lock" ;; esac
     vf_log "=== $PIEZA ($(vf_lock_campo "$PIEZA" ref))"
     dir="$VF_TRABAJO/$PIEZA"
     vf_extraer "$FUENTES" "$PIEZA" "$dir"
