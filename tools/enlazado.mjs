@@ -1,5 +1,5 @@
 // tools/enlazado.mjs - lo que el enlazador ABRIO de verdad al producir ffmpeg y ffprobe
-// (FFMPEG-PROPIO.md, 2.5.2 «Enlazado real»). Lee la traza del reenlazado (-Wl,--trace con GNU ld en
+// (FFMPEG-PROPIO.md, 2.5.2 «Enlazado real»). Lee la traza del reenlazado (-Wl,--trace dos veces con GNU ld en
 // Windows, -Wl,-t con el ld de Apple), que build.sh / mac/ffmpeg.sh guardan en enlazado.log.
 //
 //   node tools/enlazado.mjs --sistema win|mac --log <enlazado.log> --salida <linked-<sistema>.txt> [--json f]
@@ -50,6 +50,21 @@ for (const linea of fs.readFileSync(log, 'utf8').split(/\r?\n/)) {
 }
 if (!archivos.size) { r.rojo('L0', `la traza ${log} no tiene ningun archivo: ¿se reenlazo con traza?`); r.terminar(arg('--json')); process.exit(); }
 
+// Archivos .a de los que el enlazador USO algun miembro. Con «--trace» dos veces, GNU ld escribe ademas
+// de cada archivo que abre cada miembro que mete en el binario, como «(/ruta/lib.a)miembro.o»; la forma
+// «/ruta/lib.a(miembro.o)» es la de otros enlazadores. Abrir un archivo no es enlazarlo: en la primera
+// build (38704005601), el configure de FFmpeg 8.1.3 anade -latomic en cuanto enlaza con el (configure,
+// «for LATOMIC in "-latomic" ""»), GNU ld abrio libatomic.a y L4 salio en rojo, pero en ffmpeg_g.exe no
+// hay ningun simbolo de libatomic (ni libat_* ni __atomic_*_N): ningun miembro suyo entro.
+const norma = (p) => path.posix.normalize(p);
+const conMiembro = new Set();
+for (const linea of fs.readFileSync(log, 'utf8').split(/\r?\n/)) {
+  for (const m of linea.matchAll(/\(([^()\s]+\.(?:a|lib))\)[^\s()]+/g)) conMiembro.add(norma(m[1]));
+  for (const m of linea.matchAll(/(?:^|\s)([^()\s]+\.a)\([^()\s]+\)/g)) conMiembro.add(norma(m[1]));
+}
+if (sistema === 'win') r.si(conMiembro.size > 0, 'L0b', `la traza lista los miembros de archivo que se enlazan (${conMiembro.size} archivos con miembros usados)`,
+  'no lista ninguno: ¿se reenlazo con --trace una sola vez? Sin eso, L4 no distingue un archivo abierto de uno enlazado');
+
 const filas = [];
 const usadas = new Set();
 for (const f of [...archivos].sort()) {
@@ -66,6 +81,9 @@ for (const f of [...archivos].sort()) {
     // x86_64-w64-mingw32/lib/../lib/crt2.o», que NO es de ese directorio.
     else if (path.posix.normalize(f).includes('/lib/gcc/')) tipo = 'RUNTIME-SIN-AVISO';
     else pieza = 'mingw-w64';
+    // Un archivo abierto del que no entro ningun miembro no aporta nada al binario: se lista (para que se
+    // vea que el enlazador lo miro) pero no necesita aviso. Solo si la traza lista miembros (L0b).
+    if (tipo === 'RUNTIME-SIN-AVISO' && /\.a$/.test(f) && conMiembro.size && !conMiembro.has(norma(f))) tipo = 'runtime-sin-uso';
   }
   if (tipo === 'prefijo') {
     const base = f.split('/').pop();
@@ -98,6 +116,8 @@ if (sistema === 'win') {
   // Y lo que hay tiene que tener aviso: una biblioteca de GCC sin ficha (libgomp, libquadmath...) es ROJO.
   const sinAviso = filas.filter(([t]) => t === 'RUNTIME-SIN-AVISO').map(([, , f]) => f);
   r.si(sinAviso.length === 0, 'L4', 'todo lo enlazado del runtime es de gcc (libgcc, libstdc++) o de mingw-w64, con su aviso', 'sin aviso: ' + sinAviso.join(' '));
+  const sinUso = [...new Set(filas.filter(([t]) => t === 'runtime-sin-uso').map(([, , f]) => f.split('/').pop()))];
+  if (sinUso.length) r.ok('L4b', `abiertos por el enlazador sin ningun miembro enlazado (nada suyo en el binario): ${sinUso.join(' ')}`);
 } else {
   // En macOS no hay libstdc++: lo que se enlaza de C++ es el libc++ del sistema (ld puede escribir la ruta
   // del shim o la del libc++.tbd del SDK al que apunta). Esto NO demuestra que el shim haga falta ni que

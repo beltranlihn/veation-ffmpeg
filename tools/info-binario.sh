@@ -22,7 +22,11 @@ mkdir -p "$DIR"
 # linea sale pegada a la respuesta: la primera build salio con ella como ultima opcion de -buildconf
 # (puerta BC en rojo). No es parte de la respuesta del binario; se quita aqui, el unico normalizador
 # (mac/comprobar.sh usa este mismo volcado).
-correr() { ${EJ[@]+"${EJ[@]}"} "$FF" -hide_banner "$@" 2>/dev/null | tr -d '\r' | sed '/^Exiting with exit code -\{0,1\}[0-9][0-9]*$/d'; }
+# Lo que el binario (o wine) diga por stderr se guarda y, si algo falla, se ensena: con 2>/dev/null, un
+# wine que no arrancaba dejo en la primera build un version.txt vacio y un «exit 1» sin una palabra.
+ERR="$(mktemp)"
+trap 'rc=$?; if [ "$rc" -ne 0 ]; then echo "info-binario: fallo (codigo $rc) ejecutando $FF; su stderr:" >&2; tail -n 40 "$ERR" >&2; fi; rm -f "$ERR"' EXIT
+correr() { ${EJ[@]+"${EJ[@]}"} "$FF" -hide_banner "$@" 2>>"$ERR" | tr -d '\r' | sed '/^Exiting with exit code -\{0,1\}[0-9][0-9]*$/d'; }
 
 correr -version > "$DIR/version.txt"
 correr -L > "$DIR/licencia.txt"

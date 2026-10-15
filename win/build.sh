@@ -6,7 +6,8 @@
 #   - configure: EXACTAMENTE la linea de piezas.conf (tools/piezas.sh args win), un argumento por linea;
 #     sin --extra-version=$(date) ni --disable-debug (ffmpeg_g.exe conserva simbolos);
 #   - sin red dentro del contenedor (--network=none);
-#   - tras compilar se REENLAZAN ffmpeg_g.exe y ffprobe_g.exe con -Wl,--trace: el binario que se
+#   - tras compilar se REENLAZAN ffmpeg_g.exe y ffprobe_g.exe con -Wl,--trace dos veces (archivos
+#     abiertos y miembros de archivo usados): el binario que se
 #     publica es el de ese reenlazado, asi que la traza corresponde a el por construccion;
 #   - salida en $VF_SALIDA (out/win por defecto), sin zip: lo empaqueta tools/empaquetar.sh.
 set -xe
@@ -61,7 +62,7 @@ cat <<'EOF' >"$BUILD_SCRIPT"
     # cortaban a mitad de ruta (visto en el Mac, mac/ffmpeg.sh) y tools/enlazado.mjs perdia archivos.
     LDEXE="$(sed -n 's/^LDEXEFLAGS=//p' ffbuild/config.mak)"
     rm -f ffmpeg_g.exe ffprobe_g.exe ffmpeg.exe ffprobe.exe
-    make V=1 LDEXEFLAGS="$LDEXE -Wl,--trace" ffmpeg_g.exe ffprobe_g.exe > /ffbuild/enlazado.log 2> /ffbuild/enlazado-avisos.log \
+    make V=1 LDEXEFLAGS="$LDEXE -Wl,--trace -Wl,--trace" ffmpeg_g.exe ffprobe_g.exe > /ffbuild/enlazado.log 2> /ffbuild/enlazado-avisos.log \
         || { tail -n 100 /ffbuild/enlazado.log /ffbuild/enlazado-avisos.log; exit 1; }
     make V=1 ffmpeg.exe ffprobe.exe
 
