@@ -104,7 +104,11 @@ bake_images() {
         to_bake '  output     = ["type=docker"]'
         cache_lines "$IMAGE"
         to_bake '}'
-    } | tee /dev/stderr | docker buildx --builder ffbuilder bake -f - "$@"
+    } | tee /dev/stderr | docker buildx --builder ffbuilder bake --allow=fs.read="$VF_FUENTES/toolchain-win" -f - "$@"
+    # --allow: el contexto vf-toolchain esta fuera de win/ y bake pide permiso de lectura para eso. En la
+    # build 38730882310 paro con «ERROR: additional privileges requested» (en las tres anteriores, con
+    # el mismo buildx 0.38.0 y la misma definicion, no lo pidio): se concede de forma explicita, y solo
+    # para esa carpeta.
 }
 
 if [[ -z "$QUICKBUILD" ]]; then
