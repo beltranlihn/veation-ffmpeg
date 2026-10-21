@@ -42,7 +42,9 @@ pieza ffmpeg https://github.com/FFmpeg/FFmpeg.git              46d899d7a02bc6323
 printf '%s\t%s\t%s\t%s\t%s\n' 'veation-ffmpeg (receta)' 'https://github.com/beltranlihn/veation-ffmpeg.git' "$RECETA_COMMIT" 'receta' "$RECETA_COMMIT" >> "$PKG/FUENTES.tsv"
 mkdir -p "$PKG/receta"; rsync -a --exclude .git --exclude trabajo "$RECETA_DIR/" "$PKG/receta/"
 
-export PKG_CONFIG_PATH="$P/lib/pkgconfig"
+# SÓLO nuestro prefijo: con PKG_CONFIG_PATH, pkg-config veía también el Homebrew del runner y FFmpeg se autodetectaba su libxcb
+# (la primera ejecución, 39640927039, salió enlazada a /opt/homebrew/opt/libxcb: lo cazó comprobar.sh)
+export PKG_CONFIG_LIBDIR="$P/lib/pkgconfig"; unset PKG_CONFIG_PATH
 CM=(-DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$P" -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
 
 # ---- x264
@@ -79,7 +81,7 @@ SHIM="$TRABAJO/shim"; rm -rf "$SHIM"; mkdir -p "$SHIM"; ln -s "$(xcrun --show-sd
 cd "$S/ffmpeg"
 ./configure --cc=clang --enable-gpl --enable-version3 --disable-shared --enable-static --enable-pthreads \
     --enable-videotoolbox --enable-audiotoolbox --enable-neon --enable-libx264 --enable-libx265 --enable-libvpx \
-    --enable-libsnappy --disable-ffplay --disable-sdl2 --disable-doc --disable-debug --pkg-config-flags=--static \
+    --enable-libsnappy --disable-ffplay --disable-sdl2 --disable-doc --disable-debug --disable-libxcb --disable-xlib --pkg-config-flags=--static \
     --extra-cflags="-I$P/include -mmacosx-version-min=12.0" --extra-ldflags="-L$P/lib -L$SHIM -mmacosx-version-min=12.0" \
     --extra-version=veation-r475 || { tail -n 80 ffbuild/config.log; exit 1; }
 make -j"$NPROC"

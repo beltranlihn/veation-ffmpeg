@@ -19,7 +19,7 @@ echo "$V" | grep -q 'ffmpeg version n8.1.3-18-g46d899d7a0-veation-r475 '; ok $? 
 
 di "== otool -L"
 otool -L "$FF" | tee -a "$INF" >/dev/null
-! otool -L "$FF" | tail -n +2 | grep -Ev '^\s+(/usr/lib/|/System/Library/)' | grep -q .; ok $? "otool -L: sólo /usr/lib y /System/Library (nada de /opt/homebrew, /usr/local ni el prefijo)"
+! otool -L "$FF" | tail -n +2 | grep -Ev '^[[:space:]]+(/usr/lib/|/System/Library/)' | grep -q .; ok $? "otool -L: sólo /usr/lib y /System/Library (nada de /opt/homebrew, /usr/local ni el prefijo)"
 MINOS="$(otool -l "$FF" | awk '/LC_BUILD_VERSION/{f=1} f&&/minos/{print $2; exit}')"; di "minos: $MINOS"
 [ "$MINOS" = "12.0" ]; ok $? "macOS mínimo 12.0"
 file "$FF" | tee -a "$INF" | grep -q 'arm64'; ok $? "arm64"
@@ -27,7 +27,7 @@ file "$FF" | tee -a "$INF" | grep -q 'arm64'; ok $? "arm64"
 di "== configuración"
 BC="$("$FF" -hide_banner -buildconf)"; echo "$BC" >> "$INF"
 ! echo "$BC" | grep -qi 'dvd'; ok $? "sin nada de DVD"
-for o in --enable-gpl --enable-version3 --enable-videotoolbox --enable-audiotoolbox --enable-neon --enable-libx264 --enable-libx265 --enable-libvpx --enable-libsnappy --disable-ffplay --disable-sdl2 --disable-doc --disable-debug; do
+for o in --disable-libxcb --disable-xlib --enable-gpl --enable-version3 --enable-videotoolbox --enable-audiotoolbox --enable-neon --enable-libx264 --enable-libx265 --enable-libvpx --enable-libsnappy --disable-ffplay --disable-sdl2 --disable-doc --disable-debug; do
   echo "$BC" | grep -q -- "$o"; ok $? "configure $o"; done
 N_LIBS="$(echo "$BC" | grep -o -- '--enable-lib[a-z0-9]*' | sort -u | tr '\n' ' ')"; di "bibliotecas: $N_LIBS"
 [ "$N_LIBS" = "--enable-libsnappy --enable-libvpx --enable-libx264 --enable-libx265 " ]; ok $? "SÓLO x264, x265, libvpx y snappy"
@@ -35,7 +35,7 @@ N_LIBS="$(echo "$BC" | grep -o -- '--enable-lib[a-z0-9]*' | sort -u | tr '\n' ' 
 ENC="$("$FF" -hide_banner -encoders)"; DEC="$("$FF" -hide_banner -decoders)"; FIL="$("$FF" -hide_banner -filters)"; FMT="$("$FF" -hide_banner -formats)"
 di "== codificadores"; for e in libx264 libx265 h264_videotoolbox hevc_videotoolbox hap aac_at aac png libvpx-vp9 rawvideo; do echo "$ENC" | grep -Eq "^ [A-Z.]{6} $e( |$)"; ok $? "encoder $e"; done
 di "== decodificadores"; for d in h264 hevc prores dnxhd vp9 libvpx-vp9 av1 mpeg2video mjpeg png rawvideo hap dxv aac pcm_s16le; do echo "$DEC" | grep -Eq "^ [A-Z.]{6} $d( |$)"; ok $? "decoder $d"; done
-di "== filtros"; for f in scale format pad anoisesrc amerge color; do echo "$FIL" | grep -Eq "^ [A-Z.]{3} $f "; ok $? "filtro $f"; done
+di "== filtros"; for f in scale format pad anoisesrc amerge color; do echo "$FIL" | grep -Eq "^ [A-Z.|]{2,3} $f "; ok $? "filtro $f"; done
 di "== formatos"; for f in mp4 mov adts null rawvideo lavfi matroska mxf avi image2; do echo "$FMT" | grep -Eq "[ ,]$f[ ,]"; ok $? "formato $f"; done
 
 di "== encodes cortos"
