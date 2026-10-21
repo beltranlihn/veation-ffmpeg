@@ -1,0 +1,54 @@
+name: FFmpeg macOS arm64 (VEATION R475)
+
+# FFmpeg n8.1.3-18-g46d899d7a0 para el .app de macOS (Apple Silicon), desde fuente fijada: x264, x265, libvpx y snappy
+# compilados aquí (mac-r475/construir.sh), comprobado (mac-r475/comprobar.sh), y el paquete de fuente exacto.
+# Binario y fuente quedan como ARTEFACTOS de la ejecución: nada se publica en una release desde aquí.
+
+on:
+  push:
+    branches:
+      - mac-8.1-r475
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mac-arm64:
+    runs-on: macos-15
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Herramientas
+        run: |
+          xcodebuild -version; sw_vers; uname -m
+          brew list cmake >/dev/null 2>&1 || brew install cmake
+          brew list pkgconf >/dev/null 2>&1 || brew install pkgconf
+          cmake --version | head -1; pkg-config --version
+      - name: Compilar
+        run: bash mac-r475/construir.sh "$RUNNER_TEMP/vf" "$GITHUB_SHA"
+      - name: Comprobar
+        run: bash mac-r475/comprobar.sh "$RUNNER_TEMP/vf/salida/ffmpeg" "$RUNNER_TEMP/vf/salida/comprobaciones.txt"
+      - name: Preparar artefactos
+        if: always()
+        run: |
+          O="$RUNNER_TEMP/vf/salida"; mkdir -p art/bin art/src
+          cp "$O/ffmpeg" "$O/buildconf.txt" "$O/version.txt" art/bin/ 2>/dev/null || true
+          cp "$O/comprobaciones.txt" art/bin/ 2>/dev/null || true
+          ( cd art/bin && [ -f ffmpeg ] && shasum -a 256 ffmpeg > ffmpeg.sha256 ) || true
+          cp "$O"/*.tar.xz "$O"/*.tar.xz.sha256 art/src/ 2>/dev/null || true
+          ls -la art/bin art/src; cat art/bin/ffmpeg.sha256 art/src/*.sha256 2>/dev/null || true
+      - name: Artefacto binario
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: ffmpeg-macos-arm64-r475
+          path: art/bin/*
+      - name: Artefacto fuente
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: ffmpeg-macos-arm64-r475-source
+          path: art/src/*
+          compression-level: 0
